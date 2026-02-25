@@ -1,0 +1,49 @@
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export function formatDate(dateStr: string): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export function formatPct(val: number): string {
+  return Math.round(val * 100) + "%";
+}
+
+export const STATUS_COLORS: Record<string, string> = {
+  "Not Started": "#94A3B8",
+  "On-track": "#3B82F6",
+  "Completed": "#22C55E",
+  "Delayed": "#EF4444",
+  "Overdue": "#F59E0B",
+};
+
+export const STATUS_BG: Record<string, string> = {
+  "Not Started": "bg-slate-200 text-slate-700",
+  "On-track": "bg-blue-100 text-blue-700",
+  "Completed": "bg-green-100 text-green-700",
+  "Delayed": "bg-red-100 text-red-700",
+  "Overdue": "bg-amber-100 text-amber-700",
+};
+
+export const SEVERITY_COLORS: Record<string, string> = {
+  Critical: "bg-red-600 text-white",
+  High: "bg-red-100 text-red-700",
+  Medium: "bg-amber-100 text-amber-700",
+  Low: "bg-blue-100 text-blue-700",
+};
+
+export const HEALTH_COLORS: Record<string, string> = {
+  Green: "#22C55E",
+  Amber: "#F59E0B",
+  Red: "#EF4444",
+};

@@ -1,0 +1,52 @@
+import { db, actionItems, dependencies, categorySummaries } from "@/lib/db";
+import { asc, eq } from "drizzle-orm";
+import { ActionItem, Dependency } from "@/types";
+import WorkstreamView from "@/components/workstreams/WorkstreamView";
+import { isOverdue } from "@/lib/dashboard";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+interface Props {
+  params: { slug: string };
+}
+
+export default async function WorkstreamPage({ params }: Props) {
+  const workstream = decodeURIComponent(params.slug);
+
+  const items = await db
+    .select()
+    .from(actionItems)
+    .where(eq(actionItems.workstream, workstream))
+    .orderBy(asc(actionItems.sortOrder));
+
+  const cats = await db
+    .select()
+    .from(categorySummaries)
+    .where(eq(categorySummaries.workstream, workstream));
+
+  const deps = await db.select().from(dependencies);
+
+  const typedItems = items as unknown as ActionItem[];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const stats = {
+    total: typedItems.length,
+    completed: typedItems.filter((i) => i.status === "Completed").length,
+    onTrack: typedItems.filter((i) => i.status === "On-track").length,
+    delayed: typedItems.filter((i) => i.status === "Delayed").length,
+    notStarted: typedItems.filter((i) => i.status === "Not Started").length,
+    overdue: typedItems.filter((i) => isOverdue(i)).length,
+  };
+
+  return (
+    <WorkstreamView
+      workstream={workstream}
+      items={typedItems}
+      categorySummaries={cats}
+      dependencies={deps as unknown as Dependency[]}
+      stats={stats}
+    />
+  );
+}

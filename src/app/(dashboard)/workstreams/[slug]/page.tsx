@@ -27,6 +27,9 @@ export default async function WorkstreamPage({ params }: Props) {
 
   const deps = await db.select().from(dependencies);
 
+  // Fetch all items for the predecessor dropdown (cross-workstream deps)
+  const allItemsRaw = await db.select().from(actionItems).orderBy(asc(actionItems.sortOrder));
+
   const typedItems = items as unknown as ActionItem[];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -47,6 +50,7 @@ export default async function WorkstreamPage({ params }: Props) {
       categorySummaries={cats}
       dependencies={deps as unknown as Dependency[]}
       stats={stats}
+      allItems={allItemsRaw as unknown as ActionItem[]}
     />
   );
 }

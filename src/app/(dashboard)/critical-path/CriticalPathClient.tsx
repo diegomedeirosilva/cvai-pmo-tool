@@ -132,15 +132,25 @@ export default function CriticalPathClient({ items, dependencies, project, criti
     return (succMap.get(editItem.id) || []).map((id) => itemMap.get(id)).filter(Boolean) as ActionItem[];
   }, [editItem, succMap, itemMap]);
 
-  async function handleSave(updated: ActionItem) {
+  async function handleSave(updated: ActionItem, predecessorId: string | null) {
     const res = await fetch(`/api/actions/${updated.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated),
+      body: JSON.stringify({ ...updated, predecessorId }),
     });
     if (res.ok) {
-      const saved = await res.json();
-      setLocalItems((prev) => prev.map((i) => (i.id === saved.id ? saved : i)));
+      const result = await res.json();
+      if (result.updatedItems && Array.isArray(result.updatedItems)) {
+        setLocalItems((prev) => {
+          const updatedMap = new Map(result.updatedItems.map((i: ActionItem) => [i.id, i]));
+          return prev.map((i) => (updatedMap.get(i.id) as ActionItem) || i);
+        });
+      } else {
+        setLocalItems((prev) => prev.map((i) => (i.id === result.id ? result : i)));
+      }
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || "Save failed");
     }
     setEditItem(null);
   }
@@ -400,6 +410,7 @@ export default function CriticalPathClient({ items, dependencies, project, criti
           onClose={() => setEditItem(null)}
           predecessors={editPredecessors}
           successors={editSuccessors}
+          allItems={localItems}
         />
       )}
     </div>

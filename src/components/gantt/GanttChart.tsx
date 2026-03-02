@@ -22,10 +22,11 @@ const BAR_HEIGHT = ROW_HEIGHT - BAR_PADDING * 2;
 export default function GanttChart({ items: initialItems, dependencies, project }: Props) {
   const [items, setItems] = useState(initialItems);
   const [groupBy, setGroupBy] = useState<GroupBy>("workstream");
-  const [zoom, setZoom] = useState<ZoomLevel>("month");
+  const [zoom, setZoom] = useState<ZoomLevel>("week");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [tooltip, setTooltip] = useState<{ item: ActionItem; x: number; y: number } | null>(null);
   const [editItem, setEditItem] = useState<ActionItem | null>(null);
+  const [showDeps, setShowDeps] = useState(true);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const today = useMemo(() => {
@@ -86,9 +87,9 @@ export default function GanttChart({ items: initialItems, dependencies, project 
   const weekLines = useMemo(() => {
     const lines: { x: number; label: string; isMonthStart: boolean }[] = [];
     const d = new Date(startDate);
-    // Start on a Monday
+    // Start on a Sunday
     const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
+    const diff = -day;
     d.setDate(d.getDate() + diff);
     while (d <= endDate) {
       const isMonthStart = d.getDate() <= 7;
@@ -127,6 +128,30 @@ export default function GanttChart({ items: initialItems, dependencies, project 
     }
     return Array.from(groups.values());
   }, [items, groupBy]);
+
+  // Group date ranges for summary bars when collapsed
+  const groupStats = useMemo(() => {
+    const stats = new Map<string, { minStart: string; maxEnd: string; completedPct: number; completed: number; total: number }>();
+    for (const group of groupedItems) {
+      if (group.items.length === 0) continue;
+      let minStart = group.items[0].startDate;
+      let maxEnd = group.items[0].endDate;
+      let completed = 0;
+      for (const item of group.items) {
+        if (item.startDate < minStart) minStart = item.startDate;
+        if (item.endDate > maxEnd) maxEnd = item.endDate;
+        if (item.status === "Completed") completed++;
+      }
+      stats.set(group.label, {
+        minStart,
+        maxEnd,
+        completedPct: completed / group.items.length,
+        completed,
+        total: group.items.length,
+      });
+    }
+    return stats;
+  }, [groupedItems]);
 
   // Flat rows (respecting collapsed groups)
   const rows = useMemo(() => {
@@ -190,15 +215,34 @@ export default function GanttChart({ items: initialItems, dependencies, project 
     setEditItem(item);
   }
 
-  async function handleSaveItem(updated: ActionItem) {
-    const res = await fetch(`/api/actions/${updated.id}`, {
-      method: "PUT",
+  async function handleSaveItem(updated: ActionItem, predecessorId: string | null) {
+    const isNew = !updated.id;
+    const url = isNew ? "/api/actions" : `/api/actions/${updated.id}`;
+    const method = isNew ? "POST" : "PUT";
+
+    const res = await fetch(url, {
+      method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated),
+      body: JSON.stringify({ ...updated, predecessorId }),
     });
     if (res.ok) {
-      const saved = await res.json();
-      setItems((prev) => prev.map((i) => (i.id === saved.id ? saved : i)));
+      const result = await res.json();
+      if (result.updatedItems && Array.isArray(result.updatedItems)) {
+        setItems((prev) => {
+          const updatedMap = new Map(result.updatedItems.map((i: ActionItem) => [i.id, i]));
+          return prev.map((i) => (updatedMap.get(i.id) as ActionItem) || i);
+        });
+        if (isNew) setItems((prev) => [...prev, result]);
+      } else {
+        if (isNew) {
+          setItems((prev) => [...prev, result]);
+        } else {
+          setItems((prev) => prev.map((i) => (i.id === result.id ? result : i)));
+        }
+      }
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || "Save failed");
     }
     setEditItem(null);
   }
@@ -271,6 +315,15 @@ export default function GanttChart({ items: initialItems, dependencies, project 
           </button>
         </div>
 
+        <button
+          onClick={() => setShowDeps((prev) => !prev)}
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            showDeps ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          {showDeps ? "Hide Deps" : "Show Deps"}
+        </button>
+
         {/* Legend */}
         <div className="ml-auto flex items-center gap-3">
           {Object.entries(STATUS_COLORS).map(([status, color]) => (
@@ -331,7 +384,7 @@ export default function GanttChart({ items: initialItems, dependencies, project 
                     strokeWidth={"isMonthStart" in line && line.isMonthStart ? 1 : 0.5}
                   />
                   <text
-                    x={line.x + 3} y={zoom === "week" ? 16 : 20}
+                    x={line.x + 3} y={20}
                     fill={"isMonthStart" in line && line.isMonthStart ? "#64748B" : "#94A3B8"}
                     fontSize={zoom === "week" ? 9 : 11}
                     fontWeight={"isMonthStart" in line && line.isMonthStart ? "600" : "400"}
@@ -341,28 +394,17 @@ export default function GanttChart({ items: initialItems, dependencies, project 
                 </g>
               ))}
 
-              {/* In week mode, show month labels as secondary header */}
-              {zoom === "week" && monthLines.map((line, i) => (
-                <text
-                  key={`month-${i}`}
-                  x={line.x + 3} y={30}
-                  fill="#475569"
-                  fontSize={10}
-                  fontWeight="600"
-                >
-                  {line.label}
-                </text>
-              ))}
+              {/* Month labels removed from week view per user preference */}
 
               {/* Today line */}
               <line x1={todayX} y1={0} x2={todayX} y2={totalHeight} stroke="#EF4444" strokeWidth={1.5} strokeDasharray="4,3" />
-              <text x={todayX + 3} y={zoom === "week" ? 44 : 36} fill="#EF4444" fontSize={10} fontWeight="600">Today</text>
+              <text x={todayX + 3} y={36} fill="#EF4444" fontSize={10} fontWeight="600">Today</text>
 
               {/* Day-1 line */}
               {day1X !== null && (
                 <>
                   <line x1={day1X} y1={0} x2={day1X} y2={totalHeight} stroke="#1E3A5F" strokeWidth={2} />
-                  <text x={day1X + 3} y={zoom === "week" ? 44 : 36} fill="#1E3A5F" fontSize={10} fontWeight="700">Day-1</text>
+                  <text x={day1X + 3} y={36} fill="#1E3A5F" fontSize={10} fontWeight="700">Day-1</text>
                 </>
               )}
 
@@ -411,8 +453,34 @@ export default function GanttChart({ items: initialItems, dependencies, project 
                 );
               })}
 
-              {/* Dependency arrows */}
-              {dependencies.map((dep, i) => {
+              {/* Group summary bars (when collapsed) */}
+              {rows.map((row, idx) => {
+                if (row.type !== "group") return null;
+                if (!collapsedGroups.has(row.label)) return null;
+                const stats = groupStats.get(row.label);
+                if (!stats) return null;
+
+                const x = dateToX(stats.minStart);
+                const endX = dateToX(stats.maxEnd);
+                const width = Math.max(endX - x, 4);
+                const y = HEADER_HEIGHT + idx * ROW_HEIGHT + BAR_PADDING;
+                const fillWidth = width * stats.completedPct;
+
+                return (
+                  <g key={`group-bar-${row.label}`}>
+                    <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill="#64748B" opacity={0.15} />
+                    <rect x={x} y={y} width={fillWidth} height={BAR_HEIGHT} rx={3} fill="#22C55E" opacity={0.5} />
+                    {width > 60 && (
+                      <text x={x + 4} y={y + BAR_HEIGHT / 2 + 4} fontSize={10} fill="#475569" style={{ pointerEvents: "none" }}>
+                        {stats.completed}/{stats.total} completed
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Dependency arrows (dashed, toggleable) */}
+              {showDeps && dependencies.map((dep, i) => {
                 const predRowIdx = itemRowMap.get(dep.predecessorId);
                 const sucRowIdx = itemRowMap.get(dep.successorId);
                 const pred = itemMap.get(dep.predecessorId);
@@ -428,7 +496,7 @@ export default function GanttChart({ items: initialItems, dependencies, project 
 
                 return (
                   <g key={i}>
-                    <path d={`M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`} stroke="#94A3B8" strokeWidth={1} fill="none" markerEnd="url(#arrowhead)" />
+                    <path d={`M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`} stroke="#94A3B8" strokeWidth={1} fill="none" strokeDasharray="4,3" markerEnd="url(#arrowhead)" />
                   </g>
                 );
               })}
@@ -473,6 +541,7 @@ export default function GanttChart({ items: initialItems, dependencies, project 
           onClose={() => setEditItem(null)}
           predecessors={editPredecessors}
           successors={editSuccessors}
+          allItems={items}
         />
       )}
     </div>

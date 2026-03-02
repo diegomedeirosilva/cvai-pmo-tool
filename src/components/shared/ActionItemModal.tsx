@@ -5,16 +5,17 @@ import { STATUS_COLORS } from "@/lib/utils";
 
 interface Props {
   item: ActionItem | null;
-  onSave: (item: ActionItem) => Promise<void>;
+  onSave: (item: ActionItem, predecessorId: string | null) => Promise<void>;
   onClose: () => void;
   onDelete?: (id: string) => Promise<void>;
   predecessors?: ActionItem[];
   successors?: ActionItem[];
+  allItems?: ActionItem[];
 }
 
 const STATUSES: Status[] = ["Not Started", "On-track", "Delayed", "Completed"];
 
-export default function ActionItemModal({ item, onSave, onClose, onDelete, predecessors, successors }: Props) {
+export default function ActionItemModal({ item, onSave, onClose, onDelete, predecessors, successors, allItems }: Props) {
   const [form, setForm] = useState<ActionItem>(
     item || {
       id: "",
@@ -37,6 +38,13 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  // Predecessor selection state
+  const [selectedPredId, setSelectedPredId] = useState<string | null>(
+    predecessors && predecessors.length > 0 ? predecessors[0].id : null
+  );
+  const [predSearch, setPredSearch] = useState("");
 
   function update<K extends keyof ActionItem>(key: K, value: ActionItem[K]) {
     setForm((prev) => {
@@ -53,7 +61,13 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
 
   async function handleSave() {
     setSaving(true);
-    await onSave(form);
+    setSaveError("");
+    try {
+      await onSave(form, selectedPredId);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Save failed";
+      setSaveError(msg);
+    }
     setSaving(false);
   }
 
@@ -67,6 +81,25 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
 
   const targetPct = Math.round(form.targetCompletionPct * 100);
   const actualPct = Math.round(form.actualCompletionPct * 100);
+
+  // Filter items for predecessor dropdown
+  const predOptions = (allItems || [])
+    .filter((i) => i.id !== form.id) // exclude self
+    .filter((i) => {
+      if (!predSearch) return true;
+      const q = predSearch.toLowerCase();
+      return (
+        (i.requirement?.toLowerCase().includes(q)) ||
+        (i.action?.toLowerCase().includes(q)) ||
+        (i.owner?.toLowerCase().includes(q)) ||
+        (i.workstream?.toLowerCase().includes(q))
+      );
+    })
+    .slice(0, 20);
+
+  const selectedPred = selectedPredId
+    ? (allItems || []).find((i) => i.id === selectedPredId)
+    : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -191,36 +224,84 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
             </div>
           </div>
 
-          {/* Dependencies section */}
-          {((predecessors && predecessors.length > 0) || (successors && successors.length > 0)) && (
-            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 space-y-2">
-              <div className="text-xs font-medium text-slate-600">Dependencies</div>
-              {predecessors && predecessors.length > 0 && (
-                <div>
-                  <div className="text-xs text-slate-400 mb-1">Depends on (must complete first):</div>
-                  {predecessors.map((p) => (
-                    <div key={p.id} className="text-xs flex items-center gap-2 py-0.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-                      <span className="text-slate-700 font-medium truncate">{p.requirement || p.action.slice(0, 50)}</span>
-                      <span className="text-slate-400 ml-auto flex-shrink-0">{p.owner.split("/")[0]}</span>
-                    </div>
+          {/* Dependencies section — editable */}
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 space-y-2">
+            <div className="text-xs font-medium text-slate-600">Dependencies</div>
+
+            {/* Editable predecessor */}
+            <div>
+              <div className="text-xs text-slate-400 mb-1">Depends on (must complete first):</div>
+
+              {/* Selected predecessor chip */}
+              {selectedPred && (
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded px-2 py-1.5 mb-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                  <span className="text-xs text-slate-700 font-medium truncate flex-1">
+                    {selectedPred.requirement || selectedPred.action.slice(0, 50)}
+                  </span>
+                  <span className="text-xs text-slate-400 flex-shrink-0">{selectedPred.owner.split("/")[0]}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPredId(null)}
+                    className="text-slate-400 hover:text-red-500 text-sm ml-1 flex-shrink-0"
+                    title="Remove dependency"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              {/* Search input — always visible so user can change predecessor */}
+              <input
+                type="text"
+                placeholder={selectedPred ? "Change predecessor..." : "Search to add predecessor..."}
+                value={predSearch}
+                onChange={(e) => setPredSearch(e.target.value)}
+                className="input text-xs w-full"
+              />
+
+              {/* Inline results list (no absolute positioning — avoids modal overflow clipping) */}
+              {predSearch && predOptions.length > 0 && (
+                <div className="mt-1 border border-slate-200 rounded-lg bg-white max-h-36 overflow-y-auto">
+                  {predOptions.map((i) => (
+                    <button
+                      key={i.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-amber-50 border-b border-slate-50 last:border-b-0"
+                      onClick={() => {
+                        setSelectedPredId(i.id);
+                        setPredSearch("");
+                      }}
+                    >
+                      <div className="font-medium text-slate-700 truncate">
+                        {i.requirement || i.action.slice(0, 60)}
+                      </div>
+                      <div className="text-slate-400">
+                        {i.workstream} · {i.owner}
+                      </div>
+                    </button>
                   ))}
                 </div>
               )}
-              {successors && successors.length > 0 && (
-                <div>
-                  <div className="text-xs text-slate-400 mb-1">Required by (waiting on this):</div>
-                  {successors.map((s) => (
-                    <div key={s.id} className="text-xs flex items-center gap-2 py-0.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                      <span className="text-slate-700 font-medium truncate">{s.requirement || s.action.slice(0, 50)}</span>
-                      <span className="text-slate-400 ml-auto flex-shrink-0">{s.owner.split("/")[0]}</span>
-                    </div>
-                  ))}
-                </div>
+              {predSearch && predOptions.length === 0 && (
+                <div className="mt-1 px-3 py-2 text-xs text-slate-400">No matching items</div>
               )}
             </div>
-          )}
+
+            {/* Successors (read-only) */}
+            {successors && successors.length > 0 && (
+              <div>
+                <div className="text-xs text-slate-400 mb-1">Required by (waiting on this):</div>
+                {successors.map((s) => (
+                  <div key={s.id} className="text-xs flex items-center gap-2 py-0.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                    <span className="text-slate-700 font-medium truncate">{s.requirement || s.action.slice(0, 50)}</span>
+                    <span className="text-slate-400 ml-auto flex-shrink-0">{s.owner.split("/")[0]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <Field label="Notes">
             <textarea
@@ -230,6 +311,10 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
               placeholder="Additional notes…"
             />
           </Field>
+
+          {saveError && (
+            <p className="text-red-500 text-xs">{saveError}</p>
+          )}
         </div>
 
         {/* Footer */}

@@ -29,9 +29,10 @@ interface Props {
   categorySummaries: CategorySummaryRow[];
   dependencies: Dependency[];
   stats: Stats;
+  allItems?: ActionItem[];
 }
 
-export default function WorkstreamView({ workstream, items: initialItems, categorySummaries, dependencies, stats }: Props) {
+export default function WorkstreamView({ workstream, items: initialItems, categorySummaries, dependencies, stats, allItems }: Props) {
   const [items, setItems] = useState(initialItems);
   const [editItem, setEditItem] = useState<ActionItem | null>(null);
   const [addingCategory, setAddingCategory] = useState<string | null>(null);
@@ -68,7 +69,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
 
   const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
-  async function handleSaveItem(updated: ActionItem) {
+  async function handleSaveItem(updated: ActionItem, predecessorId: string | null) {
     const isNew = !updated.id;
     const url = isNew ? "/api/actions" : `/api/actions/${updated.id}`;
     const method = isNew ? "POST" : "PUT";
@@ -76,15 +77,27 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated),
+      body: JSON.stringify({ ...updated, predecessorId }),
     });
     if (res.ok) {
-      const saved = await res.json();
-      if (isNew) {
-        setItems((prev) => [...prev, saved]);
+      const result = await res.json();
+      if (result.updatedItems && Array.isArray(result.updatedItems)) {
+        setItems((prev) => {
+          const updatedMap = new Map(result.updatedItems.map((i: ActionItem) => [i.id, i]));
+          let next = prev.map((i) => (updatedMap.get(i.id) as ActionItem) || i);
+          if (isNew) next = [...next, result];
+          return next;
+        });
       } else {
-        setItems((prev) => prev.map((i) => (i.id === saved.id ? saved : i)));
+        if (isNew) {
+          setItems((prev) => [...prev, result]);
+        } else {
+          setItems((prev) => prev.map((i) => (i.id === result.id ? result : i)));
+        }
       }
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || "Save failed");
     }
     setEditItem(null);
   }
@@ -275,6 +288,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
             onDelete={handleDelete}
             predecessors={pred ? [pred] : []}
             successors={succs}
+            allItems={allItems || items}
           />
         );
       })()}

@@ -3,10 +3,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const WORKSTREAMS = [
-  "SHA", "Legal", "Governance", "Finance", "IT",
-  "Procurement", "HR", "HSSE", "Comms", "Facilities",
-];
+interface SidebarProps {
+  workstreams: string[];
+}
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "⊞" },
@@ -19,7 +18,7 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ workstreams }: SidebarProps) {
   const pathname = usePathname();
 
   async function handleLogout() {
@@ -58,7 +57,7 @@ export default function Sidebar() {
           <div className="text-blue-400 text-xs uppercase tracking-wider mb-2 font-medium">
             Workstreams
           </div>
-          {WORKSTREAMS.map((ws) => (
+          {workstreams.map((ws) => (
             <Link
               key={ws}
               href={`/workstreams/${encodeURIComponent(ws)}`}

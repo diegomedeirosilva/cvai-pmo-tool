@@ -111,10 +111,58 @@ export async function parseExcelWorkplan(buffer: Buffer): Promise<ParsedWorkbook
 
   let formulaDepsFound = 0;
 
-  // Also check I1 for day1 target date
-  const i1 = getCellValue(sheet.getCell("I1"));
-  if (i1) {
-    const d = toDateString(i1);
+  // --- Dynamic column mapping from header row (row 3) ---
+  // This handles different Excel structures (e.g. Notes column present or not)
+  const headerRow = sheet.getRow(3);
+  const col: Record<string, number> = {};
+  const headerAliases: Record<string, string> = {
+    workstream: "workstream",
+    category: "category",
+    requirement: "requirement",
+    action: "action",
+    owner: "owner",
+    status: "status",
+    "start date": "startDate",
+    "start": "startDate",
+    duration: "duration",
+    "end date": "endDate",
+    "end": "endDate",
+    "target completion (%)": "targetPct",
+    "target completion": "targetPct",
+    "target %": "targetPct",
+    "target": "targetPct",
+    "actual completion (%)": "actualPct",
+    "actual completion": "actualPct",
+    "actual %": "actualPct",
+    notes: "notes",
+    comments: "notes",
+  };
+  headerRow.eachCell((cell, colNumber) => {
+    const raw = cleanText(getCellValue(cell)).toLowerCase();
+    const mapped = headerAliases[raw];
+    if (mapped) col[mapped] = colNumber;
+  });
+
+  // Fallback to fixed positions if headers weren't found
+  if (!col.workstream) col.workstream = 1;
+  if (!col.category) col.category = 2;
+  if (!col.requirement) col.requirement = 3;
+  if (!col.action) col.action = 4;
+  if (!col.owner) col.owner = 5;
+  if (!col.status) col.status = 6;
+  if (!col.startDate) col.startDate = 7;
+  if (!col.duration) col.duration = 8;
+  if (!col.endDate) col.endDate = 9;
+  if (!col.targetPct) col.targetPct = 10;
+  // actualPct and notes may or may not exist — no forced fallback
+
+  console.log("[Parser] Column mapping:", col);
+
+  // Check for day1 target date in the end-date column of row 1
+  const endDateColLetter = String.fromCharCode(64 + col.endDate); // e.g. 9 → "I"
+  const day1Cell = getCellValue(sheet.getCell(`${endDateColLetter}1`));
+  if (day1Cell) {
+    const d = toDateString(day1Cell);
     if (d) day1TargetDate = d;
   }
 
@@ -122,18 +170,18 @@ export async function parseExcelWorkplan(buffer: Buffer): Promise<ParsedWorkbook
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber <= 3) return; // Skip title + empty + header rows
 
-    const workstreamVal = getCellValue(row.getCell(1)); // A
-    const categoryVal = getCellValue(row.getCell(2));   // B
-    const requirementVal = getCellValue(row.getCell(3)); // C
-    const actionVal = getCellValue(row.getCell(4));      // D
-    const ownerVal = getCellValue(row.getCell(5));       // E
-    const statusVal = getCellValue(row.getCell(6));      // F
-    const startDateVal = getCellValue(row.getCell(7));   // G
-    const durationVal = getCellValue(row.getCell(8));    // H
-    const endDateVal = getCellValue(row.getCell(9));     // I
-    const targetPctVal = getCellValue(row.getCell(10));  // J
-    const notesVal = getCellValue(row.getCell(11));      // K
-    const actualPctVal = getCellValue(row.getCell(12));  // L
+    const workstreamVal = getCellValue(row.getCell(col.workstream));
+    const categoryVal = getCellValue(row.getCell(col.category));
+    const requirementVal = getCellValue(row.getCell(col.requirement));
+    const actionVal = getCellValue(row.getCell(col.action));
+    const ownerVal = getCellValue(row.getCell(col.owner));
+    const statusVal = getCellValue(row.getCell(col.status));
+    const startDateVal = getCellValue(row.getCell(col.startDate));
+    const durationVal = getCellValue(row.getCell(col.duration));
+    const endDateVal = getCellValue(row.getCell(col.endDate));
+    const targetPctVal = col.targetPct ? getCellValue(row.getCell(col.targetPct)) : null;
+    const notesVal = col.notes ? getCellValue(row.getCell(col.notes)) : null;
+    const actualPctVal = col.actualPct ? getCellValue(row.getCell(col.actualPct)) : null;
 
     const workstream = cleanText(workstreamVal);
     const category = cleanText(categoryVal);
@@ -156,7 +204,7 @@ export async function parseExcelWorkplan(buffer: Buffer): Promise<ParsedWorkbook
     if (!workstream) return;
 
     // --- Formula-based dependency detection ---
-    const startCell = row.getCell(7);
+    const startCell = row.getCell(col.startDate);
     const startFormula = getCellFormula(startCell);
     const predecessorRowNum = parseDependencyRef(startFormula);
 

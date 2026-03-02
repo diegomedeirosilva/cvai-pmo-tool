@@ -43,7 +43,9 @@ export async function POST() {
       insertedRisks = await db.insert(risks).values(detectedRisks).returning();
     }
 
-    return NextResponse.json({ count: insertedRisks.length, risks: insertedRisks });
+    // Return full risk list (including AI-Inferred) so UI stays in sync
+    const allRisks = await db.select().from(risks).orderBy(asc(risks.createdAt));
+    return NextResponse.json({ count: insertedRisks.length, risks: allRisks });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "DB error" }, { status: 500 });

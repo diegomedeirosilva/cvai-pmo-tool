@@ -16,6 +16,8 @@ export default function RiskRegister({ initialRisks, items }: Props) {
   const [filterSeverity, setFilterSeverity] = useState<string>("All");
   const [filterStatus, setFilterStatus] = useState<string>("Open");
   const [regenerating, setRegenerating] = useState(false);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const itemMap = new Map(items.map((i) => [i.id, i]));
@@ -28,6 +30,24 @@ export default function RiskRegister({ initialRisks, items }: Props) {
       setRisks(data.risks || []);
     }
     setRegenerating(false);
+  }
+
+  async function runAIAnalysis() {
+    setAiAnalyzing(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/risks/ai", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setRisks(data.risks || []);
+      } else {
+        const data = await res.json();
+        setAiError(data.error || "AI analysis failed");
+      }
+    } catch {
+      setAiError("Network error during AI analysis");
+    }
+    setAiAnalyzing(false);
   }
 
   async function updateStatus(risk: Risk, status: RiskStatus) {
@@ -60,13 +80,37 @@ export default function RiskRegister({ initialRisks, items }: Props) {
             {openCount} open risks · {highCount} critical/high
           </p>
         </div>
-        <button
-          onClick={regenerate}
-          disabled={regenerating}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
-        >
-          {regenerating ? "Refreshing…" : "Refresh Risks"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={regenerate}
+            disabled={regenerating || aiAnalyzing}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+          >
+            {regenerating ? "Refreshing…" : "Refresh Risks"}
+          </button>
+          <button
+            onClick={runAIAnalysis}
+            disabled={aiAnalyzing || regenerating}
+            className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center gap-1.5"
+          >
+            {aiAnalyzing ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Analyzing…
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z" />
+                </svg>
+                AI Analysis
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -105,6 +149,14 @@ export default function RiskRegister({ initialRisks, items }: Props) {
         </div>
       </div>
 
+      {/* AI error toast */}
+      {aiError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between text-sm text-red-700">
+          <span>{aiError}</span>
+          <button onClick={() => setAiError(null)} className="text-red-400 hover:text-red-600 ml-4">&times;</button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         {filtered.length === 0 ? (
@@ -136,7 +188,19 @@ export default function RiskRegister({ initialRisks, items }: Props) {
                         {risk.severity}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{risk.type}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      <span className="flex items-center gap-1.5">
+                        {risk.type === "AI-Inferred" ? "Strategic" : risk.type}
+                        {risk.type === "AI-Inferred" && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-medium">
+                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z" />
+                            </svg>
+                            AI
+                          </span>
+                        )}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-slate-700 max-w-md">
                       <p className="line-clamp-2">{risk.description}</p>
                     </td>

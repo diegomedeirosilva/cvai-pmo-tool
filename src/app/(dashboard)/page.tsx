@@ -29,7 +29,7 @@ export default async function DashboardPage() {
       riskRows as unknown as Risk[]
     );
 
-    return <DashboardClient summary={summary} risks={riskRows as unknown as Risk[]} />;
+    return <DashboardClient summary={summary} risks={riskRows as unknown as Risk[]} items={items as unknown as ActionItem[]} />;
   } catch (e) {
     console.error("Dashboard error:", e);
     return (

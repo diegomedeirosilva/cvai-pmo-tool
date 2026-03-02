@@ -48,7 +48,18 @@ Workstream summaries: ${wsSummary}
 Top risks: ${risksText || "None detected"}
 Upcoming milestones (next 14 days): ${milestonesText || "None"}
 
-Write a 4-6 sentence executive summary. Be specific - mention workstream names, owner names for critical items, and exact numbers. Tone: professional, direct, consulting-style. Do not use bullet points. Do not use markdown formatting.`;
+Write exactly 5-6 bullet points as a structured executive briefing. Each bullet must start with a bold topic label followed by a colon, then the insight.
+
+Format each line as: **Topic**: Insight text here.
+
+Example format:
+**Overall Status**: Project is X days from Day-1 with Y of Z items completed across N workstreams.
+**Key Progress**: [Specific workstream achievements with numbers]
+**Critical Risks**: [Top 1-2 risks with owner names and specific impact]
+**Upcoming Milestones**: [What's due in next 14 days and who owns it]
+**Attention Required**: [What needs immediate action and from whom]
+
+Be specific — mention workstream names, owner names, and exact numbers. Tone: professional, direct, McKinsey-style. No filler. Each bullet should deliver a distinct insight. Return ONLY the bullet lines, nothing else.`;
 }
 
 // Anthropic provider
@@ -61,7 +72,7 @@ async function createAnthropicProvider(): Promise<AIProvider> {
     async generateSummary(ctx) {
       const message = await client.messages.create({
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-        max_tokens: 400,
+        max_tokens: 600,
         messages: [{ role: "user", content: buildPrompt(ctx) }],
       });
       const block = message.content[0];
@@ -81,7 +92,7 @@ async function createOpenAIProvider(): Promise<AIProvider> {
     async generateSummary(ctx) {
       const completion = await client.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 400,
+        max_tokens: 600,
         messages: [{ role: "user", content: buildPrompt(ctx) }],
       });
       return completion.choices[0]?.message?.content || "";

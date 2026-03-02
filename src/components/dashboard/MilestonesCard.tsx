@@ -3,9 +3,10 @@ import { formatDate, STATUS_COLORS } from "@/lib/utils";
 
 interface Props {
   milestones: ActionItem[];
+  onItemClick?: (item: ActionItem) => void;
 }
 
-export default function MilestonesCard({ milestones }: Props) {
+export default function MilestonesCard({ milestones, onItemClick }: Props) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -17,14 +18,18 @@ export default function MilestonesCard({ milestones }: Props) {
       {milestones.length === 0 ? (
         <div className="px-4 py-6 text-center text-slate-400 text-sm">No items due in next 14 days</div>
       ) : (
-        <div className="divide-y divide-slate-100">
-          {milestones.slice(0, 8).map((m) => {
+        <div className="divide-y divide-slate-100 overflow-y-auto" style={{ maxHeight: 360 }}>
+          {milestones.map((m) => {
             const end = new Date(m.endDate);
             const daysLeft = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
             const isOverdue = daysLeft < 0;
 
             return (
-              <div key={m.id} className="px-4 py-2.5 hover:bg-slate-50">
+              <div
+                key={m.id}
+                className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors"
+                onClick={() => onItemClick?.(m)}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-slate-700 truncate">

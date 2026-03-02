@@ -86,8 +86,7 @@ export function buildDashboardSummary(
       const end = new Date(item.endDate);
       return end >= today && end <= in14Days;
     })
-    .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
-    .slice(0, 10);
+    .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
   const overallHealth = computeHealth(items.length, completed, overdue, delayed);
 

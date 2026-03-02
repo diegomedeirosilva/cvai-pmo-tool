@@ -1,24 +1,28 @@
 "use client";
 import { useState, useEffect } from "react";
-import { DashboardSummary, Risk } from "@/types";
+import { ActionItem, DashboardSummary, Risk } from "@/types";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { HEALTH_COLORS } from "@/lib/utils";
 import WorkstreamHealthTable from "./WorkstreamHealthTable";
 import MilestonesCard from "./MilestonesCard";
 import AISummaryCard from "./AISummaryCard";
+import ActionItemModal from "../shared/ActionItemModal";
 
 interface Props {
   summary: Omit<DashboardSummary, "aiSummary">;
   risks: Risk[];
+  items: ActionItem[];
 }
 
 const SEVERITY_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
-export default function DashboardClient({ summary, risks }: Props) {
+export default function DashboardClient({ summary, risks, items }: Props) {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ActionItem | null>(null);
+  const [allItems, setAllItems] = useState(items);
 
   function loadAISummary() {
     setAiLoading(true);
@@ -71,12 +75,12 @@ export default function DashboardClient({ summary, risks }: Props) {
         </div>
       </div>
 
-      {/* Top row: countdown + health + pie metrics + top risks */}
+      {/* Top row: countdown+health stacked + pie metrics + top risks */}
       <div className="grid grid-cols-12 gap-4">
 
-        {/* Countdown — compact */}
-        <div className="col-span-2">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 h-full flex flex-col items-center justify-center text-center">
+        {/* Countdown + Health — stacked vertically */}
+        <div className="col-span-2 flex flex-col gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Days to Day-1</div>
             <div className="text-4xl font-bold tabular-nums" style={{ color: countdownColor }}>
               {daysToDay1}
@@ -87,11 +91,7 @@ export default function DashboardClient({ summary, risks }: Props) {
               })}
             </div>
           </div>
-        </div>
-
-        {/* Health — compact */}
-        <div className="col-span-2">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 h-full flex flex-col items-center justify-center text-center">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Overall Health</div>
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center mb-1"
@@ -103,15 +103,15 @@ export default function DashboardClient({ summary, risks }: Props) {
           </div>
         </div>
 
-        {/* Key Metrics — compact: pie on top, single stat row below */}
+        {/* Key Metrics — larger donut */}
         <div className="col-span-3">
           <div className="bg-white rounded-xl border border-slate-200 p-3 h-full flex flex-col">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Key Metrics</div>
-            {/* Pie chart */}
-            <div className="flex justify-center flex-1 min-h-0" style={{ height: 90 }}>
-              <ResponsiveContainer width="60%" height="100%">
+            {/* Pie chart — enlarged */}
+            <div className="flex justify-center flex-1 min-h-0" style={{ height: 150 }}>
+              <ResponsiveContainer width="80%" height="100%">
                 <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={24} outerRadius={40} paddingAngle={2} dataKey="value">
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={2} dataKey="value">
                     {pieData.map((entry, index) => (
                       <Cell key={index} fill={entry.color} />
                     ))}
@@ -145,8 +145,8 @@ export default function DashboardClient({ summary, risks }: Props) {
           </div>
         </div>
 
-        {/* Top Risks — enlarged, clickable */}
-        <div className="col-span-5">
+        {/* Top Risks — expanded to fill freed space */}
+        <div className="col-span-7">
           <div className="bg-white rounded-xl border border-slate-200 p-4 h-full">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs text-slate-500 uppercase tracking-wider">Top Risks</div>
@@ -190,15 +190,35 @@ export default function DashboardClient({ summary, risks }: Props) {
       {/* Middle row: workstream health + milestones */}
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-8">
-          <WorkstreamHealthTable workstreams={summary.workstreamHealth} />
+          <WorkstreamHealthTable workstreams={summary.workstreamHealth} items={items} />
         </div>
         <div className="col-span-4">
-          <MilestonesCard milestones={summary.upcomingMilestones} />
+          <MilestonesCard milestones={summary.upcomingMilestones} onItemClick={setSelectedItem} />
         </div>
       </div>
 
       {/* Bottom: AI Summary */}
       <AISummaryCard summary={aiSummary} loading={aiLoading} error={aiError} onRetry={loadAISummary} />
+
+      {/* Action item modal */}
+      {selectedItem && (
+        <ActionItemModal
+          item={selectedItem}
+          allItems={allItems}
+          onClose={() => setSelectedItem(null)}
+          onSave={async (updated) => {
+            const res = await fetch(`/api/actions/${updated.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updated),
+            });
+            if (!res.ok) throw new Error("Save failed");
+            const saved = await res.json();
+            setAllItems((prev) => prev.map((i) => (i.id === saved.id ? saved : i)));
+            setSelectedItem(null);
+          }}
+        />
+      )}
 
       {/* Risk detail popup */}
       {selectedRisk && (

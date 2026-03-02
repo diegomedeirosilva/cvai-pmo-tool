@@ -62,34 +62,39 @@ export async function PUT(
       }
     }
 
-    // 3. Cascade dates to all downstream successors
-    const allItems = await db.select().from(actionItems);
-    const allDeps = await db.select().from(dependencies);
-    const typedItems = allItems as unknown as ActionItem[];
-    const typedDeps = allDeps as unknown as Dependency[];
+    // 3. Check if cascade is needed (does this item have downstream successors?)
+    const directSuccessors = await db
+      .select({ id: dependencies.id })
+      .from(dependencies)
+      .where(eq(dependencies.predecessorId, itemId));
 
-    const cascadeChanges = computeCascade(itemId, typedItems, typedDeps);
-
-    // 4. Persist cascaded date changes
-    for (const change of cascadeChanges) {
-      await db
-        .update(actionItems)
-        .set({
-          startDate: change.startDate,
-          endDate: change.endDate,
-          updatedAt: new Date(),
-        })
-        .where(eq(actionItems.id, change.id));
-    }
-
-    // 5. Re-fetch all changed items for the response
     const updatedItems: unknown[] = [updated[0]];
-    for (const change of cascadeChanges) {
-      const rows = await db
-        .select()
-        .from(actionItems)
-        .where(eq(actionItems.id, change.id));
-      if (rows.length > 0) updatedItems.push(rows[0]);
+
+    if (directSuccessors.length > 0) {
+      // Has successors — full cascade needed
+      const allItems = await db.select().from(actionItems);
+      const allDeps = await db.select().from(dependencies);
+      const typedItems = allItems as unknown as ActionItem[];
+      const typedDeps = allDeps as unknown as Dependency[];
+
+      const cascadeChanges = computeCascade(itemId, typedItems, typedDeps);
+
+      const now = new Date();
+      await Promise.all(
+        cascadeChanges.map((change) =>
+          db.update(actionItems)
+            .set({ startDate: change.startDate, endDate: change.endDate, updatedAt: now })
+            .where(eq(actionItems.id, change.id))
+        )
+      );
+
+      for (const change of cascadeChanges) {
+        const orig = typedItems.find((i) => i.id === change.id);
+        if (orig) {
+          const dur = Math.max(Math.round((new Date(change.endDate).getTime() - new Date(change.startDate).getTime()) / 86400000), 0);
+          updatedItems.push({ ...orig, startDate: change.startDate, endDate: change.endDate, duration: dur, updatedAt: now.toISOString() });
+        }
+      }
     }
 
     return NextResponse.json({

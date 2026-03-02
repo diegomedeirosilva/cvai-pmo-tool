@@ -59,6 +59,24 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
     });
   }
 
+  // When a predecessor is selected, snap start date to predecessor's end date
+  function selectPredecessor(predId: string | null) {
+    setSelectedPredId(predId);
+    if (predId) {
+      const pred = (allItems || []).find((i) => i.id === predId);
+      if (pred) {
+        const newStart = pred.endDate;
+        const dur = form.duration;
+        const end = new Date(new Date(newStart).getTime() + dur * 86400000);
+        setForm((prev) => ({
+          ...prev,
+          startDate: newStart,
+          endDate: end.toISOString().split("T")[0],
+        }));
+      }
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaveError("");
@@ -269,7 +287,7 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
                       type="button"
                       className="w-full text-left px-3 py-2 text-xs hover:bg-amber-50 border-b border-slate-50 last:border-b-0"
                       onClick={() => {
-                        setSelectedPredId(i.id);
+                        selectPredecessor(i.id);
                         setPredSearch("");
                       }}
                     >

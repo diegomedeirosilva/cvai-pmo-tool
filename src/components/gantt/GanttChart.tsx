@@ -1,8 +1,9 @@
 "use client";
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { ActionItem, Dependency, Project } from "@/types";
 import { STATUS_COLORS, formatDate, formatPct } from "@/lib/utils";
 import ActionItemModal from "@/components/shared/ActionItemModal";
+import { computeCascade } from "@/lib/cascade";
 
 interface Props {
   items: ActionItem[];
@@ -19,8 +20,9 @@ const HEADER_HEIGHT = 56;
 const BAR_PADDING = 6;
 const BAR_HEIGHT = ROW_HEIGHT - BAR_PADDING * 2;
 
-export default function GanttChart({ items: initialItems, dependencies, project }: Props) {
+export default function GanttChart({ items: initialItems, dependencies: initialDeps, project }: Props) {
   const [items, setItems] = useState(initialItems);
+  const [deps, setDeps] = useState(initialDeps);
   const [groupBy, setGroupBy] = useState<GroupBy>("workstream");
   const [zoom, setZoom] = useState<ZoomLevel>("week");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -28,6 +30,26 @@ export default function GanttChart({ items: initialItems, dependencies, project 
   const [editItem, setEditItem] = useState<ActionItem | null>(null);
   const [showDeps, setShowDeps] = useState(true);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // --- Drag state ---
+  interface DragState {
+    itemId: string;
+    mode: "move" | "resize-left" | "resize-right";
+    startMouseX: number;
+    origBarX: number;
+    origBarEndX: number;
+    currentBarX: number;
+    currentBarEndX: number;
+  }
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+
+  // Optimistic UI refs — allow drag handlers to read latest state without stale closures
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const depsRef = useRef(deps);
+  depsRef.current = deps;
+  const dragSaveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const today = useMemo(() => {
     const d = new Date();
@@ -66,6 +88,21 @@ export default function GanttChart({ items: initialItems, dependencies, project 
   function dateToXFromDate(d: Date): number {
     const days = Math.ceil((d.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     return days * pixelsPerDay;
+  }
+
+  function xToDate(x: number): string {
+    const days = Math.round(x / pixelsPerDay);
+    const ms = startDate.getTime() + days * 86400000;
+    return new Date(ms).toISOString().split("T")[0];
+  }
+
+  const EDGE_ZONE = 6;
+  const DRAG_THRESHOLD = 3;
+
+  function getDragMode(mouseX: number, barX: number, barWidth: number): "move" | "resize-left" | "resize-right" {
+    if (mouseX - barX <= EDGE_ZONE) return "resize-left";
+    if (barX + barWidth - mouseX <= EDGE_ZONE) return "resize-right";
+    return "move";
   }
 
   // Month grid lines
@@ -107,6 +144,7 @@ export default function GanttChart({ items: initialItems, dependencies, project 
   }, [startDate, endDate, pixelsPerDay]);
 
   function toggleGroup(label: string) {
+    dragRef.current = null; setDrag(null); document.body.style.cursor = "";
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
@@ -179,20 +217,20 @@ export default function GanttChart({ items: initialItems, dependencies, project 
   // Build predecessor/successor maps for modal
   const predMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const dep of dependencies) {
+    for (const dep of deps) {
       map.set(dep.successorId, dep.predecessorId);
     }
     return map;
-  }, [dependencies]);
+  }, [deps]);
 
   const succMap = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const dep of dependencies) {
+    for (const dep of deps) {
       if (!map.has(dep.predecessorId)) map.set(dep.predecessorId, []);
       map.get(dep.predecessorId)!.push(dep.successorId);
     }
     return map;
-  }, [dependencies]);
+  }, [deps]);
 
   const itemMap = useMemo(() => {
     const map = new Map<string, ActionItem>();
@@ -215,18 +253,186 @@ export default function GanttChart({ items: initialItems, dependencies, project 
     setEditItem(item);
   }
 
-  async function handleSaveItem(updated: ActionItem, predecessorId: string | null) {
+  // --- Drag handlers ---
+  function handleDragStart(e: React.MouseEvent<SVGRectElement>, item: ActionItem) {
+    if (e.button !== 0) return;
+    const barX = dateToX(item.startDate);
+    const barEndX = dateToX(item.endDate);
+    const barWidth = Math.max(barEndX - barX, 4);
+
+    const svgRect = svgRef.current?.getBoundingClientRect();
+    if (!svgRect) return;
+    const scrollLeft = svgRef.current?.parentElement?.scrollLeft || 0;
+    const localX = e.clientX - svgRect.left + scrollLeft;
+    const mode = getDragMode(localX, barX, barWidth);
+
+    const state: DragState = {
+      itemId: item.id,
+      mode,
+      startMouseX: e.clientX,
+      origBarX: barX,
+      origBarEndX: barEndX,
+      currentBarX: barX,
+      currentBarEndX: barEndX,
+    };
+    dragRef.current = state;
+    setDrag(state);
+    setTooltip(null);
+    document.body.style.cursor = mode === "move" ? "grabbing" : "ew-resize";
+    e.preventDefault();
+  }
+
+  const handleDragMove = useCallback((e: MouseEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const deltaX = e.clientX - d.startMouseX;
+
+    let newBarX = d.origBarX;
+    let newBarEndX = d.origBarEndX;
+
+    if (d.mode === "move") {
+      newBarX = d.origBarX + deltaX;
+      newBarEndX = d.origBarEndX + deltaX;
+    } else if (d.mode === "resize-left") {
+      newBarX = Math.min(d.origBarX + deltaX, d.origBarEndX - pixelsPerDay);
+    } else {
+      newBarEndX = Math.max(d.origBarEndX + deltaX, d.origBarX + pixelsPerDay);
+    }
+
+    // Clamp to chart boundaries
+    if (d.mode === "move") {
+      const barW = newBarEndX - newBarX;
+      if (newBarX < 0) { newBarX = 0; newBarEndX = barW; }
+      if (newBarEndX > chartWidth) { newBarEndX = chartWidth; newBarX = chartWidth - barW; }
+    } else {
+      newBarX = Math.max(0, newBarX);
+      newBarEndX = Math.min(chartWidth, newBarEndX);
+    }
+
+    const updated = { ...d, currentBarX: newBarX, currentBarEndX: newBarEndX };
+    dragRef.current = updated;
+    setDrag(updated);
+  }, [pixelsPerDay, chartWidth]);
+
+  const handleDragEnd = useCallback((e: MouseEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+
+    document.body.style.cursor = "";
+    dragRef.current = null;
+    setDrag(null);
+
+    // Below threshold → treat as click
+    if (Math.abs(e.clientX - d.startMouseX) < DRAG_THRESHOLD) {
+      const item = itemsRef.current.find((i) => i.id === d.itemId);
+      if (item) handleBarClick(item);
+      return;
+    }
+
+    const newStartDate = xToDate(d.currentBarX);
+    const newEndDate = xToDate(d.currentBarEndX);
+    const newDuration = Math.max(Math.round(
+      (new Date(newEndDate + "T00:00:00").getTime() - new Date(newStartDate + "T00:00:00").getTime()) / 86400000
+    ), 1);
+
+    const item = itemsRef.current.find((i) => i.id === d.itemId);
+    if (!item || (newStartDate === item.startDate && newEndDate === item.endDate)) return;
+
+    const updated: ActionItem = { ...item, startDate: newStartDate, endDate: newEndDate, duration: newDuration };
+
+    // --- Optimistic UI: snap bar + cascade locally (instant) ---
+    const withUpdated = itemsRef.current.map((i) => i.id === updated.id ? updated : i);
+    const cascadeChanges = computeCascade(updated.id, withUpdated, depsRef.current);
+
+    // Save originals for rollback on error
+    const rollbackOriginals = new Map<string, ActionItem>();
+    rollbackOriginals.set(item.id, { ...item });
+    for (const c of cascadeChanges) {
+      const orig = itemsRef.current.find((i) => i.id === c.id);
+      if (orig) rollbackOriginals.set(c.id, { ...orig });
+    }
+
+    // Apply local cascade
+    const changeMap = new Map(cascadeChanges.map((c) => [c.id, c]));
+    const optimistic = withUpdated.map((i) => {
+      const c = changeMap.get(i.id);
+      if (!c) return i;
+      const dur = Math.max(Math.round((new Date(c.endDate).getTime() - new Date(c.startDate).getTime()) / 86400000), 0);
+      return { ...i, startDate: c.startDate, endDate: c.endDate, duration: dur };
+    });
+    itemsRef.current = optimistic;
+    setItems(optimistic);
+
+    // --- Debounce: cancel previous save for this bar ---
+    const prevTimer = dragSaveTimers.current.get(item.id);
+    if (prevTimer) clearTimeout(prevTimer);
+
+    dragSaveTimers.current.set(item.id, setTimeout(async () => {
+      dragSaveTimers.current.delete(updated.id);
+      try {
+        const res = await fetch(`/api/actions/${updated.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updated),
+        });
+        if (res.ok) {
+          const result = await res.json();
+          // Server cascade is authoritative — apply over optimistic
+          if (result.updatedItems && Array.isArray(result.updatedItems)) {
+            setItems((prev) => {
+              const map = new Map(result.updatedItems.map((i: ActionItem) => [i.id, i]));
+              const next = prev.map((i) => (map.get(i.id) as ActionItem) || i);
+              itemsRef.current = next;
+              return next;
+            });
+          }
+        } else {
+          // Rollback all optimistic changes on error
+          setItems((prev) => {
+            const next = prev.map((i) => rollbackOriginals.get(i.id) || i);
+            itemsRef.current = next;
+            return next;
+          });
+        }
+      } catch {
+        setItems((prev) => {
+          const next = prev.map((i) => rollbackOriginals.get(i.id) || i);
+          itemsRef.current = next;
+          return next;
+        });
+      }
+    }, 300));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, pixelsPerDay]);
+
+  useEffect(() => {
+    document.addEventListener("mousemove", handleDragMove);
+    document.addEventListener("mouseup", handleDragEnd);
+    return () => {
+      document.removeEventListener("mousemove", handleDragMove);
+      document.removeEventListener("mouseup", handleDragEnd);
+    };
+  }, [handleDragMove, handleDragEnd]);
+
+  async function handleSaveItem(updated: ActionItem, predecessorId: string | null | undefined) {
     const isNew = !updated.id;
     const url = isNew ? "/api/actions" : `/api/actions/${updated.id}`;
     const method = isNew ? "POST" : "PUT";
 
+    // Only include predecessorId in body when explicitly set (not undefined)
+    const body = predecessorId !== undefined
+      ? { ...updated, predecessorId }
+      : { ...updated };
+
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...updated, predecessorId }),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       const result = await res.json();
+      const itemId = updated.id || result.id;
+
       if (result.updatedItems && Array.isArray(result.updatedItems)) {
         setItems((prev) => {
           const updatedMap = new Map(result.updatedItems.map((i: ActionItem) => [i.id, i]));
@@ -239,6 +445,19 @@ export default function GanttChart({ items: initialItems, dependencies, project 
         } else {
           setItems((prev) => prev.map((i) => (i.id === result.id ? result : i)));
         }
+      }
+
+      // Update local dependencies state
+      if (predecessorId !== undefined) {
+        setDeps((prev) => {
+          // Remove old predecessor deps for this item
+          const filtered = prev.filter((d) => d.successorId !== itemId);
+          // Add new one if set
+          if (predecessorId) {
+            return [...filtered, { id: `temp-${Date.now()}`, predecessorId, successorId: itemId }];
+          }
+          return filtered;
+        });
       }
     } else {
       const err = await res.json();
@@ -422,29 +641,55 @@ export default function GanttChart({ items: initialItems, dependencies, project 
               {rows.map((row, idx) => {
                 if (row.type !== "item") return null;
                 const item = row.item;
-                const x = dateToX(item.startDate);
-                const endX = dateToX(item.endDate);
+                const isDragging = drag && drag.itemId === item.id;
+                const x = isDragging ? drag.currentBarX : dateToX(item.startDate);
+                const endX = isDragging ? drag.currentBarEndX : dateToX(item.endDate);
                 const width = Math.max(endX - x, 4);
                 const y = HEADER_HEIGHT + idx * ROW_HEIGHT + BAR_PADDING;
                 const color = getBarColor(item);
-                // Use actualCompletionPct for bar fill
-                const fillWidth = width * item.actualCompletionPct;
+                const fillWidth = isDragging ? 0 : width * item.actualCompletionPct;
 
                 return (
                   <g key={item.id}>
-                    <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill={color} opacity={0.25} className="cursor-pointer" onClick={() => handleBarClick(item)} />
-                    <rect x={x} y={y} width={fillWidth} height={BAR_HEIGHT} rx={3} fill={color} className="cursor-pointer" onClick={() => handleBarClick(item)} />
+                    {/* Ghost bar showing original position during drag */}
+                    {isDragging && (
+                      <rect
+                        x={dateToX(item.startDate)} y={y}
+                        width={Math.max(dateToX(item.endDate) - dateToX(item.startDate), 4)}
+                        height={BAR_HEIGHT} rx={3}
+                        fill="none" stroke={color} strokeWidth={1} strokeDasharray="3,3" opacity={0.4}
+                      />
+                    )}
+                    <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill={color} opacity={isDragging ? 0.45 : 0.25} />
+                    <rect x={x} y={y} width={fillWidth} height={BAR_HEIGHT} rx={3} fill={color} />
+                    {/* Interaction rect */}
                     <rect
                       x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill="transparent"
-                      className="cursor-pointer"
+                      style={{ cursor: drag ? "grabbing" : "grab" }}
+                      onMouseDown={(e) => handleDragStart(e, item)}
+                      onMouseMove={(e) => {
+                        if (drag) return;
+                        const svgRect = svgRef.current?.getBoundingClientRect();
+                        if (!svgRect) return;
+                        const scrollLeft = svgRef.current?.parentElement?.scrollLeft || 0;
+                        const localX = e.clientX - svgRect.left + scrollLeft;
+                        const mode = getDragMode(localX, x, width);
+                        e.currentTarget.style.cursor = mode === "move" ? "grab" : "ew-resize";
+                      }}
                       onMouseEnter={(e) => {
+                        if (drag) return;
                         const rect = svgRef.current?.getBoundingClientRect();
                         if (rect) setTooltip({ item, x: e.clientX - rect.left, y: e.clientY - rect.top });
                       }}
-                      onMouseLeave={() => setTooltip(null)}
-                      onClick={() => handleBarClick(item)}
+                      onMouseLeave={() => { if (!drag) setTooltip(null); }}
                     />
-                    {width > 50 && (
+                    {/* Date label above bar during drag */}
+                    {isDragging && (
+                      <text x={x} y={y - 3} fontSize={9} fill="#475569" style={{ pointerEvents: "none" }}>
+                        {xToDate(drag.currentBarX)} → {xToDate(drag.currentBarEndX)}
+                      </text>
+                    )}
+                    {!isDragging && width > 50 && (
                       <text x={x + 4} y={y + BAR_HEIGHT / 2 + 4} fontSize={10} fill={item.status === "Not Started" ? "#475569" : "white"} style={{ pointerEvents: "none" }}>
                         {(item.requirement || item.owner).slice(0, Math.floor(width / 6.5))}
                       </text>
@@ -480,7 +725,7 @@ export default function GanttChart({ items: initialItems, dependencies, project 
               })}
 
               {/* Dependency arrows (dashed, toggleable) */}
-              {showDeps && dependencies.map((dep, i) => {
+              {showDeps && deps.map((dep, i) => {
                 const predRowIdx = itemRowMap.get(dep.predecessorId);
                 const sucRowIdx = itemRowMap.get(dep.successorId);
                 const pred = itemMap.get(dep.predecessorId);

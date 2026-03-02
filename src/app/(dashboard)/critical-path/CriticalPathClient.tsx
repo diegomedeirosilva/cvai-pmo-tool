@@ -20,9 +20,10 @@ const HEADER_HEIGHT = 48;
 const BAR_PADDING = 6;
 const BAR_HEIGHT = ROW_HEIGHT - BAR_PADDING * 2;
 
-export default function CriticalPathClient({ items, dependencies, project, criticalIds, totalDays, chain, floatDays }: Props) {
+export default function CriticalPathClient({ items, dependencies: initialDeps, project, criticalIds, totalDays, chain, floatDays }: Props) {
   const [editItem, setEditItem] = useState<ActionItem | null>(null);
   const [localItems, setLocalItems] = useState(items);
+  const [deps, setDeps] = useState(initialDeps);
   const svgRef = useRef<SVGSVGElement>(null);
   const criticalSet = useMemo(() => new Set(criticalIds), [criticalIds]);
 
@@ -93,25 +94,25 @@ export default function CriticalPathClient({ items, dependencies, project, criti
   // Build dep set for checking actual links in the chain flow diagram
   const depSet = useMemo(() => {
     const s = new Set<string>();
-    for (const dep of dependencies) s.add(`${dep.predecessorId}→${dep.successorId}`);
+    for (const dep of deps) s.add(`${dep.predecessorId}→${dep.successorId}`);
     return s;
-  }, [dependencies]);
+  }, [deps]);
 
   // Build dep maps for modal
   const predMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const dep of dependencies) map.set(dep.successorId, dep.predecessorId);
+    for (const dep of deps) map.set(dep.successorId, dep.predecessorId);
     return map;
-  }, [dependencies]);
+  }, [deps]);
 
   const succMap = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const dep of dependencies) {
+    for (const dep of deps) {
       if (!map.has(dep.predecessorId)) map.set(dep.predecessorId, []);
       map.get(dep.predecessorId)!.push(dep.successorId);
     }
     return map;
-  }, [dependencies]);
+  }, [deps]);
 
   const itemMap = useMemo(() => {
     const map = new Map<string, ActionItem>();
@@ -147,6 +148,17 @@ export default function CriticalPathClient({ items, dependencies, project, criti
         });
       } else {
         setLocalItems((prev) => prev.map((i) => (i.id === result.id ? result : i)));
+      }
+
+      // Update local dependencies state
+      if (predecessorId !== undefined) {
+        setDeps((prev) => {
+          const filtered = prev.filter((d) => d.successorId !== updated.id);
+          if (predecessorId) {
+            return [...filtered, { id: `temp-${Date.now()}`, predecessorId, successorId: updated.id }];
+          }
+          return filtered;
+        });
       }
     } else {
       const err = await res.json();

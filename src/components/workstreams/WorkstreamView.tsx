@@ -32,8 +32,9 @@ interface Props {
   allItems?: ActionItem[];
 }
 
-export default function WorkstreamView({ workstream, items: initialItems, categorySummaries, dependencies, stats, allItems }: Props) {
+export default function WorkstreamView({ workstream, items: initialItems, categorySummaries, dependencies: initialDeps, stats, allItems }: Props) {
   const [items, setItems] = useState(initialItems);
+  const [deps, setDeps] = useState(initialDeps);
   const [editItem, setEditItem] = useState<ActionItem | null>(null);
   const [addingCategory, setAddingCategory] = useState<string | null>(null);
 
@@ -54,18 +55,18 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
   // Build predecessor and successor maps
   const predMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const dep of dependencies) m.set(dep.successorId, dep.predecessorId);
+    for (const dep of deps) m.set(dep.successorId, dep.predecessorId);
     return m;
-  }, [dependencies]);
+  }, [deps]);
 
   const succMap = useMemo(() => {
     const m = new Map<string, string[]>();
-    for (const dep of dependencies) {
+    for (const dep of deps) {
       if (!m.has(dep.predecessorId)) m.set(dep.predecessorId, []);
       m.get(dep.predecessorId)!.push(dep.successorId);
     }
     return m;
-  }, [dependencies]);
+  }, [deps]);
 
   const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
@@ -81,6 +82,8 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
     });
     if (res.ok) {
       const result = await res.json();
+      const itemId = updated.id || result.id;
+
       if (result.updatedItems && Array.isArray(result.updatedItems)) {
         setItems((prev) => {
           const updatedMap = new Map(result.updatedItems.map((i: ActionItem) => [i.id, i]));
@@ -94,6 +97,17 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
         } else {
           setItems((prev) => prev.map((i) => (i.id === result.id ? result : i)));
         }
+      }
+
+      // Update local dependencies state
+      if (predecessorId !== undefined) {
+        setDeps((prev) => {
+          const filtered = prev.filter((d) => d.successorId !== itemId);
+          if (predecessorId) {
+            return [...filtered, { id: `temp-${Date.now()}`, predecessorId, successorId: itemId }];
+          }
+          return filtered;
+        });
       }
     } else {
       const err = await res.json();

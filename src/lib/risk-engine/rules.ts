@@ -91,12 +91,13 @@ export function detectRisks(
       }
     }
 
-    // 3. No Buffer (end date within 7 days of Day-1)
+    // 3. No Buffer (end date within 7 days of Day-1, but not ON Day-1 itself —
+    //    items ending exactly on Day-1 are the final deliverables, not risks)
     if (item.status !== "Completed") {
       const daysFromDay1 = Math.ceil(
         (day1.getTime() - new Date(item.endDate).getTime()) / (1000 * 60 * 60 * 24)
       );
-      if (daysFromDay1 >= 0 && daysFromDay1 <= 7) {
+      if (daysFromDay1 > 0 && daysFromDay1 <= 7) {
         risks.push({
           type: "No Buffer" as RiskType,
           severity: "High" as RiskSeverity,

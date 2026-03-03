@@ -1,0 +1,66 @@
+import { NextResponse } from "next/server";
+import { db, uploads, snapshots } from "@/lib/db";
+import { asc } from "drizzle-orm";
+import { computeHealth } from "@/lib/dashboard";
+import { ActionItem } from "@/types";
+
+export async function POST() {
+  try {
+    const uploadRows = await db.select().from(uploads).orderBy(asc(uploads.uploadedAt));
+    let inserted = 0;
+
+    for (const upload of uploadRows) {
+      const items = upload.snapshot as unknown as ActionItem[];
+      if (!items || items.length === 0) continue;
+
+      let completed = 0, onTrack = 0, notStarted = 0, delayed = 0, overdue = 0;
+      const wsMap = new Map<string, { total: number; completed: number; onTrack: number; notStarted: number; delayed: number; overdue: number }>();
+
+      for (const item of items) {
+        switch (item.status) {
+          case "Completed": completed++; break;
+          case "On-track": onTrack++; break;
+          case "Not Started": notStarted++; break;
+          case "Delayed": delayed++; overdue++; break;
+        }
+
+        if (!wsMap.has(item.workstream)) {
+          wsMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, notStarted: 0, delayed: 0, overdue: 0 });
+        }
+        const ws = wsMap.get(item.workstream)!;
+        ws.total++;
+        switch (item.status) {
+          case "Completed": ws.completed++; break;
+          case "On-track": ws.onTrack++; break;
+          case "Not Started": ws.notStarted++; break;
+          case "Delayed": ws.delayed++; ws.overdue++; break;
+        }
+      }
+
+      const workstreamData = Array.from(wsMap.entries()).map(([ws, c]) => ({
+        workstream: ws,
+        health: computeHealth(c.total, c.completed, c.overdue, c.delayed),
+        total: c.total, completed: c.completed, onTrack: c.onTrack,
+        notStarted: c.notStarted, delayed: c.delayed, overdue: c.overdue,
+        completionPct: c.total > 0 ? c.completed / c.total : 0,
+      }));
+
+      const snapshotDate = new Date(upload.uploadedAt).toISOString().split("T")[0];
+
+      await db.insert(snapshots).values({
+        snapshotDate,
+        totalItems: items.length,
+        completed, onTrack, notStarted, delayed, overdue,
+        overallHealth: computeHealth(items.length, completed, overdue, delayed),
+        workstreamData,
+        source: "upload",
+      });
+      inserted++;
+    }
+
+    return NextResponse.json({ backfilled: inserted });
+  } catch (e) {
+    console.error("Backfill error:", e);
+    return NextResponse.json({ error: "Backfill failed" }, { status: 500 });
+  }
+}

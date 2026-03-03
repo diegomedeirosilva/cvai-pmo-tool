@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, actionItems, dependencies, categorySummaries, projects, uploads, risks } from "@/lib/db";
 import { parseExcelWorkplan, buildPreview } from "@/lib/excel/parser";
 import { detectRisks } from "@/lib/risk-engine/rules";
+import { takeSnapshot } from "@/lib/snapshot";
 import { eq, ne } from "drizzle-orm";
 import { ActionItem, Dependency } from "@/types";
 
@@ -87,6 +88,9 @@ export async function POST(req: NextRequest) {
     if (detectedRisks.length > 0) {
       await db.insert(risks).values(detectedRisks);
     }
+
+    // 8. Auto-snapshot for trend tracking
+    await takeSnapshot("upload");
 
     return NextResponse.json({
       success: true,

@@ -77,3 +77,18 @@ export const uploads = pgTable("uploads", {
   itemCount: integer("item_count").notNull().default(0),
   snapshot: jsonb("snapshot").notNull().default([]),
 });
+
+export const snapshots = pgTable("snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  snapshotDate: date("snapshot_date").notNull(),
+  totalItems: integer("total_items").notNull().default(0),
+  completed: integer("completed").notNull().default(0),
+  onTrack: integer("on_track").notNull().default(0),
+  notStarted: integer("not_started").notNull().default(0),
+  delayed: integer("delayed").notNull().default(0),
+  overdue: integer("overdue").notNull().default(0),
+  overallHealth: text("overall_health").notNull().default("Green"),
+  workstreamData: jsonb("workstream_data").notNull().default([]),
+  source: text("source").notNull().default("manual"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

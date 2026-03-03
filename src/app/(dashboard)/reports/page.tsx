@@ -22,6 +22,46 @@ export default function ReportsPage() {
     setDownloading(null);
   }
 
+  async function downloadPDF() {
+    setDownloading("pdf");
+    try {
+      const res = await fetch("/api/reports/data");
+      if (!res.ok) throw new Error("Failed to fetch data");
+      const data = await res.json();
+      const { generatePDF } = await import("@/lib/reports/pdf-generator");
+      const blob = await generatePDF(data);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "PMO_Executive_Report.pdf";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("PDF export failed. Please ensure data is loaded.");
+    }
+    setDownloading(null);
+  }
+
+  async function downloadPPTX() {
+    setDownloading("pptx");
+    try {
+      const res = await fetch("/api/reports/data");
+      if (!res.ok) throw new Error("Failed to fetch data");
+      const data = await res.json();
+      const { generatePPTX } = await import("@/lib/reports/pptx-generator");
+      const blob = await generatePPTX(data);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "PMO_Status_Report.pptx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("PowerPoint export failed. Please ensure data is loaded.");
+    }
+    setDownloading(null);
+  }
+
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-xl font-semibold text-slate-800 mb-1">Reports & Exports</h1>
@@ -50,24 +90,26 @@ export default function ReportsPage() {
           loading={downloading === "analytics"}
         />
 
-        {/* PDF report - coming soon */}
+        {/* PDF report */}
         <ExportCard
           icon="📄"
           title="PDF Executive Report"
-          description="Full 12-page executive report with workstream health, Gantt overview, risk register, and owner accountability table."
-          badge="Coming in Phase 2"
-          badgeColor="bg-slate-100 text-slate-500"
-          disabled
+          description="5-page executive report with cover page, key metrics, workstream health, risk register, and upcoming milestones. Navy-themed consulting style."
+          badge="PDF · 5 pages"
+          badgeColor="bg-red-100 text-red-700"
+          onDownload={downloadPDF}
+          loading={downloading === "pdf"}
         />
 
-        {/* PPTX - coming soon */}
+        {/* PPTX */}
         <ExportCard
           icon="🖼"
           title="PowerPoint Export"
-          description="Consulting-style slide deck with one slide per page from the executive report. Editable native PowerPoint objects."
-          badge="Coming in Phase 2"
-          badgeColor="bg-slate-100 text-slate-500"
-          disabled
+          description="Consulting-style slide deck with key metrics, workstream health table, risk register, and milestones. Editable native PowerPoint objects."
+          badge="PPTX · 5 slides"
+          badgeColor="bg-orange-100 text-orange-700"
+          onDownload={downloadPPTX}
+          loading={downloading === "pptx"}
         />
       </div>
     </div>

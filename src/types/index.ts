@@ -104,6 +104,21 @@ export interface DashboardSummary {
   aiSummary?: string;
 }
 
+export interface Snapshot {
+  id: string;
+  snapshotDate: string;
+  totalItems: number;
+  completed: number;
+  onTrack: number;
+  notStarted: number;
+  delayed: number;
+  overdue: number;
+  overallHealth: "Green" | "Amber" | "Red";
+  workstreamData: WorkstreamHealth[];
+  source: "manual" | "upload" | "cron";
+  createdAt: string;
+}
+
 export interface OwnerStats {
   owner: string;
   total: number;

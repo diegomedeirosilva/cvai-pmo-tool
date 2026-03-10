@@ -29,7 +29,6 @@ function buildPrompt(ctx: SummaryContext): string {
     .join("; ");
 
   const milestonesText = ctx.upcomingMilestones
-    .slice(0, 5)
     .map((m) => `${m.requirement} (${m.owner}, due ${m.endDate})`)
     .join("; ");
 
@@ -46,7 +45,7 @@ Days remaining: ${ctx.daysRemaining}
 Total items: ${ctx.total}, Completed: ${ctx.completed}, On-track: ${ctx.onTrack}, Not Started: ${ctx.notStarted}, Delayed: ${ctx.delayed}, Overdue: ${ctx.overdue}
 Workstream summaries: ${wsSummary}
 Top risks: ${risksText || "None detected"}
-Upcoming milestones (next 14 days): ${milestonesText || "None"}
+Upcoming milestones (next 14 days) — ${ctx.upcomingMilestones.length} total: ${milestonesText || "None"}
 
 Write exactly 5-6 bullet points as a structured executive briefing. Each bullet must start with a bold topic label followed by a colon, then the insight.
 
@@ -72,7 +71,7 @@ async function createAnthropicProvider(): Promise<AIProvider> {
     async generateSummary(ctx) {
       const message = await client.messages.create({
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-        max_tokens: 600,
+        max_tokens: 1024,
         messages: [{ role: "user", content: buildPrompt(ctx) }],
       });
       const block = message.content[0];
@@ -92,7 +91,7 @@ async function createOpenAIProvider(): Promise<AIProvider> {
     async generateSummary(ctx) {
       const completion = await client.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 600,
+        max_tokens: 1024,
         messages: [{ role: "user", content: buildPrompt(ctx) }],
       });
       return completion.choices[0]?.message?.content || "";

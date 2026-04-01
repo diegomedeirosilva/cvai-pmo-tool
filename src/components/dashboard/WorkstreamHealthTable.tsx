@@ -126,7 +126,7 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-slate-100 rounded-full h-1.5 min-w-[60px]">
                         <div
-                          className="h-1.5 rounded-full transition-all"
+                          className="h-1.5 rounded-full transition-[width]"
                           style={{ width: `${pct}%`, backgroundColor: color }}
                         />
                       </div>
@@ -160,7 +160,7 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                         <div className="flex items-center gap-2">
                           <div className="flex-1 bg-slate-100 rounded-full h-1.5 min-w-[60px]">
                             <div
-                              className="h-1.5 rounded-full transition-all"
+                              className="h-1.5 rounded-full transition-[width]"
                               style={{ width: `${catPct}%`, backgroundColor: catColor }}
                             />
                           </div>

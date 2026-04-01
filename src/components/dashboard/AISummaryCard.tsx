@@ -38,7 +38,7 @@ function renderBullets(text: string) {
 }
 
 export default function AISummaryCard({ summary, loading, error, onRetry }: Props) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5">

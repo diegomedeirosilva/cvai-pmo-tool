@@ -12,8 +12,7 @@ export interface SummaryContext {
   total: number;
   completed: number;
   onTrack: number;
-  notStarted: number;
-  delayed: number;
+  atRisk: number;
   overdue: number;
   workstreamSummary: WorkstreamHealth[];
   topRisks: Risk[];
@@ -42,7 +41,7 @@ function buildPrompt(ctx: SummaryContext): string {
 Project: ${ctx.projectTitle}
 Day-1 target: ${ctx.day1TargetDate}
 Days remaining: ${ctx.daysRemaining}
-Total items: ${ctx.total}, Completed: ${ctx.completed}, On-track: ${ctx.onTrack}, Not Started: ${ctx.notStarted}, Delayed: ${ctx.delayed}, Overdue: ${ctx.overdue}
+Total items: ${ctx.total}, Completed: ${ctx.completed}, On-track: ${ctx.onTrack}, At-risk: ${ctx.atRisk}, Overdue: ${ctx.overdue}
 Workstream summaries: ${wsSummary}
 Top risks: ${risksText || "None detected"}
 Upcoming milestones (next 14 days) — ${ctx.upcomingMilestones.length} total: ${milestonesText || "None"}

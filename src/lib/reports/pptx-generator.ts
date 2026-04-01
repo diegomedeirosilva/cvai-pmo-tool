@@ -98,8 +98,8 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
     { label: "Total Items", value: String(data.summary.totalItems), color: NAVY },
     { label: "Completed", value: String(data.summary.completed), color: GREEN_HEX },
     { label: "On Track", value: String(data.summary.onTrack), color: BLUE_HEX },
-    { label: "Delayed", value: String(data.summary.delayed), color: RED_HEX },
-    { label: "Overdue", value: String(data.summary.overdue), color: AMBER_HEX },
+    { label: "At-risk", value: String(data.summary.atRisk), color: AMBER_HEX },
+    { label: "Overdue", value: String(data.summary.overdue), color: RED_HEX },
   ];
 
   const kpiW = 2.2;
@@ -126,9 +126,8 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
   const statuses = [
     { label: "Completed", count: data.summary.completed, color: GREEN_HEX },
     { label: "On Track", count: data.summary.onTrack, color: BLUE_HEX },
-    { label: "Not Started", count: data.summary.notStarted, color: "94A3B8" },
-    { label: "Delayed", count: data.summary.delayed, color: RED_HEX },
-    { label: "Overdue", count: data.summary.overdue, color: AMBER_HEX },
+    { label: "At-risk", count: data.summary.atRisk, color: AMBER_HEX },
+    { label: "Overdue", count: data.summary.overdue, color: RED_HEX },
   ];
 
   const barStartY = 3.2;
@@ -181,7 +180,7 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
     fontSize: 18, fontFace: "Arial", color: WHITE, bold: true,
   });
 
-  const wsHeaders = ["Workstream", "Health", "Total", "Done", "On Track", "Delayed", "Overdue", "Completion"];
+  const wsHeaders = ["Workstream", "Health", "Total", "Done", "On Track", "At-risk", "Overdue", "Completion"];
   const wsColW = [3.5, 1.2, 1.0, 1.0, 1.2, 1.2, 1.2, 1.5];
   const wsStartX = 0.6;
 
@@ -210,7 +209,7 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
       { text: String(ws.total), options: { fontSize: 9, fontFace: "Arial", color: "334155", align: "center", fill: { color: bgColor } } },
       { text: String(ws.completed), options: { fontSize: 9, fontFace: "Arial", color: "334155", align: "center", fill: { color: bgColor } } },
       { text: String(ws.onTrack), options: { fontSize: 9, fontFace: "Arial", color: "334155", align: "center", fill: { color: bgColor } } },
-      { text: String(ws.delayed), options: { fontSize: 9, fontFace: "Arial", color: "334155", align: "center", fill: { color: bgColor } } },
+      { text: String(ws.atRisk), options: { fontSize: 9, fontFace: "Arial", color: "334155", align: "center", fill: { color: bgColor } } },
       { text: String(ws.overdue), options: { fontSize: 9, fontFace: "Arial", color: "334155", align: "center", fill: { color: bgColor } } },
       { text: fmtPct(ws.completionPct), options: { fontSize: 9, fontFace: "Arial", color: "334155", bold: true, align: "center", fill: { color: bgColor } } },
     ]);

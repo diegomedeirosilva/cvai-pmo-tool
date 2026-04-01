@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { ActionItem, Status } from "@/types";
-import { STATUS_COLORS } from "@/lib/utils";
+import { ActionItem } from "@/types";
+import { STATUS_BG } from "@/lib/utils";
+import { computeStatus } from "@/lib/dashboard";
 
 interface Props {
   item: ActionItem | null;
@@ -13,8 +14,6 @@ interface Props {
   allItems?: ActionItem[];
 }
 
-const STATUSES: Status[] = ["Not Started", "On-track", "Delayed", "Completed"];
-
 export default function ActionItemModal({ item, onSave, onClose, onDelete, predecessors, successors, allItems }: Props) {
   const [form, setForm] = useState<ActionItem>(
     item || {
@@ -24,7 +23,7 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
       requirement: "",
       action: "",
       owner: "",
-      status: "Not Started",
+      status: "On-track",
       startDate: new Date().toISOString().split("T")[0],
       duration: 14,
       endDate: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
@@ -178,16 +177,12 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
                 placeholder="e.g., Hassen Moolla"
               />
             </Field>
-            <Field label="Status">
-              <select
-                value={form.status}
-                onChange={(e) => update("status", e.target.value as Status)}
-                className="input"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+            <Field label="Status (auto-computed)">
+              <div className="flex items-center h-[38px]">
+                <span className={`px-2.5 py-1 rounded text-xs font-medium ${STATUS_BG[computeStatus(form)] || "bg-slate-100 text-slate-600"}`}>
+                  {computeStatus(form)}
+                </span>
+              </div>
             </Field>
           </div>
 

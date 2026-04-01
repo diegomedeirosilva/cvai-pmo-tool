@@ -21,7 +21,7 @@ export async function GET() {
       requirement: i.requirement,
       action: i.action,
       owner: i.owner,
-      status: i.status as "Not Started" | "On-track" | "Delayed" | "Completed",
+      status: i.status as "Completed" | "On-track" | "At-risk" | "Overdue",
       startDate: i.startDate,
       duration: i.duration,
       endDate: i.endDate,

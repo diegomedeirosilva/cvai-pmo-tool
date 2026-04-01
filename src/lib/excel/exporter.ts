@@ -1,12 +1,13 @@
 import ExcelJS from "exceljs";
 import { ActionItem, Dependency, Project } from "@/types";
+import { computeStatus } from "@/lib/dashboard";
 
-const STATUS_VALUES = ["Not Started", "On-track", "Delayed", "Completed"];
+const STATUS_VALUES = ["Completed", "On-track", "At-risk", "Overdue"];
 const STATUS_COLORS: Record<string, string> = {
-  "Not Started": "FF94A3B8",
-  "On-track": "FF3B82F6",
   "Completed": "FF22C55E",
-  "Delayed": "FFEF4444",
+  "On-track": "FF3B82F6",
+  "At-risk": "FFF59E0B",
+  "Overdue": "FFEF4444",
 };
 
 export async function exportRoundTrip(
@@ -79,12 +80,11 @@ export async function exportRoundTrip(
   for (const [ws, catMap] of grouped) {
     for (const [cat, catItems] of catMap) {
       // Category header row
-      const firstItemRow = currentRow + 1; // items start after header
+      const firstItemRow = currentRow + 1;
       const lastItemRow = currentRow + catItems.length;
 
       const headerRow = sheet.getRow(currentRow);
-      headerRow.getCell(2).value = cat; // B = Category
-      // Aggregate formulas
+      headerRow.getCell(2).value = cat;
       headerRow.getCell(7).value = { formula: `MIN(G${firstItemRow}:G${lastItemRow})` } as ExcelJS.CellFormulaValue;
       headerRow.getCell(8).value = { formula: `I${currentRow}-G${currentRow}` } as ExcelJS.CellFormulaValue;
       headerRow.getCell(9).value = { formula: `MAX(I${firstItemRow}:I${lastItemRow})` } as ExcelJS.CellFormulaValue;
@@ -104,16 +104,17 @@ export async function exportRoundTrip(
         currentRow++;
       }
 
-      // Now write item data (we need to know all row numbers first for formulas)
+      // Now write item data
       let rowIdx = currentRow - catItems.length;
       for (const item of catItems) {
         const row = sheet.getRow(rowIdx);
-        row.getCell(1).value = item.workstream; // A
-        row.getCell(2).value = item.category;   // B
-        row.getCell(3).value = item.requirement; // C
-        row.getCell(4).value = item.action;      // D
-        row.getCell(5).value = item.owner;       // E
-        row.getCell(6).value = item.status;      // F
+        const status = computeStatus(item);
+        row.getCell(1).value = item.workstream;
+        row.getCell(2).value = item.category;
+        row.getCell(3).value = item.requirement;
+        row.getCell(4).value = item.action;
+        row.getCell(5).value = item.owner;
+        row.getCell(6).value = status;
 
         // G: Start date — use formula if there's a predecessor
         const predId = predMap.get(item.id);
@@ -129,24 +130,22 @@ export async function exportRoundTrip(
         }
         row.getCell(7).numFmt = "yyyy-mm-dd";
 
-        row.getCell(8).value = item.duration;   // H
-        row.getCell(9).value = { formula: `G${rowIdx}+H${rowIdx}` } as ExcelJS.CellFormulaValue; // I
+        row.getCell(8).value = item.duration;
+        row.getCell(9).value = { formula: `G${rowIdx}+H${rowIdx}` } as ExcelJS.CellFormulaValue;
         row.getCell(9).numFmt = "yyyy-mm-dd";
 
-        // J: Target completion formula
         row.getCell(10).value = {
           formula: `IFERROR(MAX(0,MIN(1,(TODAY()-G${rowIdx})/(I${rowIdx}-G${rowIdx}))),"")`,
         } as ExcelJS.CellFormulaValue;
         row.getCell(10).numFmt = "0%";
 
-        row.getCell(11).value = item.notes;     // K
+        row.getCell(11).value = item.notes;
 
-        // L: Actual completion (manual)
         row.getCell(12).value = item.actualCompletionPct;
         row.getCell(12).numFmt = "0%";
 
         // Status cell color
-        const statusColor = STATUS_COLORS[item.status];
+        const statusColor = STATUS_COLORS[status];
         if (statusColor) {
           row.getCell(6).fill = {
             type: "pattern",
@@ -160,7 +159,7 @@ export async function exportRoundTrip(
     }
   }
 
-  // Data validation for Status column (applied per cell for type compatibility)
+  // Data validation for Status column
   for (let r = 4; r < currentRow; r++) {
     const cell = sheet.getCell(`F${r}`);
     if (cell.value) {
@@ -168,24 +167,24 @@ export async function exportRoundTrip(
       (cell as any).dataValidation = {
         type: "list",
         allowBlank: true,
-        formulae: ['"Not Started,On-track,Delayed,Completed"'],
+        formulae: ['"Completed,On-track,At-risk,Overdue"'],
       };
     }
   }
 
   // Column widths
-  sheet.getColumn(1).width = 14;  // Workstream
-  sheet.getColumn(2).width = 22;  // Category
-  sheet.getColumn(3).width = 25;  // Requirement
-  sheet.getColumn(4).width = 50;  // Action
-  sheet.getColumn(5).width = 20;  // Owner
-  sheet.getColumn(6).width = 13;  // Status
-  sheet.getColumn(7).width = 12;  // Start date
-  sheet.getColumn(8).width = 10;  // Duration
-  sheet.getColumn(9).width = 12;  // End date
-  sheet.getColumn(10).width = 20; // Target %
-  sheet.getColumn(11).width = 40; // Notes
-  sheet.getColumn(12).width = 20; // Actual %
+  sheet.getColumn(1).width = 14;
+  sheet.getColumn(2).width = 22;
+  sheet.getColumn(3).width = 25;
+  sheet.getColumn(4).width = 50;
+  sheet.getColumn(5).width = 20;
+  sheet.getColumn(6).width = 13;
+  sheet.getColumn(7).width = 12;
+  sheet.getColumn(8).width = 10;
+  sheet.getColumn(9).width = 12;
+  sheet.getColumn(10).width = 20;
+  sheet.getColumn(11).width = 40;
+  sheet.getColumn(12).width = 20;
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);
@@ -202,45 +201,44 @@ export async function exportAnalytics(
   const rawHeaders = [
     "ID", "Workstream", "Category", "Requirement", "Action", "Owner",
     "Status", "Start Date", "Duration", "End Date", "Target %", "Actual %", "Notes",
-    "Is Overdue", "Created At",
+    "Created At",
   ];
   rawSheet.addRow(rawHeaders).font = { bold: true };
-  const today = new Date();
   for (const item of items) {
-    const od = item.status !== "Completed" && new Date(item.endDate) < today;
+    const status = computeStatus(item);
     rawSheet.addRow([
       item.id, item.workstream, item.category, item.requirement, item.action,
-      item.owner, item.status, item.startDate, item.duration, item.endDate,
+      item.owner, status, item.startDate, item.duration, item.endDate,
       Math.round(item.targetCompletionPct * 100) + "%",
       Math.round(item.actualCompletionPct * 100) + "%", item.notes,
-      od ? "Yes" : "No", item.createdAt,
+      item.createdAt,
     ]);
   }
 
   // === Sheet 2: Summary by Workstream ===
   const wsSheet = workbook.addWorksheet("By Workstream");
-  wsSheet.addRow(["Workstream", "Total", "Completed", "On-track", "Not Started", "Delayed", "Overdue", "Completion %"]).font = { bold: true };
+  wsSheet.addRow(["Workstream", "Total", "Completed", "On-track", "At-risk", "Overdue", "Completion %"]).font = { bold: true };
   const wsMap = new Map<string, Record<string, number>>();
   for (const item of items) {
     if (!wsMap.has(item.workstream)) {
-      wsMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, notStarted: 0, delayed: 0, overdue: 0 });
+      wsMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
     }
     const w = wsMap.get(item.workstream)!;
     w.total++;
-    if (item.status !== "Completed" && new Date(item.endDate) < today) w.overdue++;
-    if (item.status === "Completed") w.completed++;
-    else if (item.status === "On-track") w.onTrack++;
-    else if (item.status === "Not Started") w.notStarted++;
-    else if (item.status === "Delayed") w.delayed++;
+    const status = computeStatus(item);
+    if (status === "Completed") w.completed++;
+    else if (status === "On-track") w.onTrack++;
+    else if (status === "At-risk") w.atRisk++;
+    else if (status === "Overdue") w.overdue++;
   }
   for (const [ws, c] of wsMap) {
-    wsSheet.addRow([ws, c.total, c.completed, c.onTrack, c.notStarted, c.delayed, c.overdue,
+    wsSheet.addRow([ws, c.total, c.completed, c.onTrack, c.atRisk, c.overdue,
       c.total > 0 ? Math.round((c.completed / c.total) * 100) + "%" : "0%"]);
   }
 
   // === Sheet 3: Summary by Owner ===
   const ownerSheet = workbook.addWorksheet("By Owner");
-  ownerSheet.addRow(["Owner", "Total", "Completed", "On-track", "Not Started", "Delayed", "Overdue"]).font = { bold: true };
+  ownerSheet.addRow(["Owner", "Total", "Completed", "On-track", "At-risk", "Overdue"]).font = { bold: true };
   const ownerMap = new Map<string, Record<string, number>>();
   for (const item of items) {
     const owners = item.owner.includes("/")
@@ -248,34 +246,35 @@ export async function exportAnalytics(
       : [item.owner];
     for (const owner of owners) {
       if (!ownerMap.has(owner)) {
-        ownerMap.set(owner, { total: 0, completed: 0, onTrack: 0, notStarted: 0, delayed: 0, overdue: 0 });
+        ownerMap.set(owner, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
       }
       const o = ownerMap.get(owner)!;
       o.total++;
-      if (item.status !== "Completed" && new Date(item.endDate) < today) o.overdue++;
-      if (item.status === "Completed") o.completed++;
-      else if (item.status === "On-track") o.onTrack++;
-      else if (item.status === "Not Started") o.notStarted++;
-      else if (item.status === "Delayed") o.delayed++;
+      const status = computeStatus(item);
+      if (status === "Completed") o.completed++;
+      else if (status === "On-track") o.onTrack++;
+      else if (status === "At-risk") o.atRisk++;
+      else if (status === "Overdue") o.overdue++;
     }
   }
   for (const [owner, c] of ownerMap) {
-    ownerSheet.addRow([owner, c.total, c.completed, c.onTrack, c.notStarted, c.delayed, c.overdue]);
+    ownerSheet.addRow([owner, c.total, c.completed, c.onTrack, c.atRisk, c.overdue]);
   }
 
   // === Sheet 4: Timeline (sorted by end date) ===
   const timelineSheet = workbook.addWorksheet("Timeline");
   timelineSheet.addRow([
     "Workstream", "Category", "Requirement", "Owner", "Status",
-    "Start Date", "End Date", "Duration", "Target %", "Is Overdue", "Notes"
+    "Start Date", "End Date", "Duration", "Target %", "Actual %", "Notes"
   ]).font = { bold: true };
   const sorted = [...items].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
   for (const item of sorted) {
-    const od = item.status !== "Completed" && new Date(item.endDate) < today;
+    const status = computeStatus(item);
     timelineSheet.addRow([
-      item.workstream, item.category, item.requirement, item.owner, item.status,
+      item.workstream, item.category, item.requirement, item.owner, status,
       item.startDate, item.endDate, item.duration,
-      Math.round(item.targetCompletionPct * 100) + "%", od ? "Yes" : "No", item.notes,
+      Math.round(item.targetCompletionPct * 100) + "%",
+      Math.round(item.actualCompletionPct * 100) + "%", item.notes,
     ]);
   }
 

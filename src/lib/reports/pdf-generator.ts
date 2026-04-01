@@ -145,8 +145,8 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
     { label: "Total Items", value: String(data.summary.totalItems), color: NAVY },
     { label: "Completed", value: String(data.summary.completed), color: GREEN },
     { label: "On Track", value: String(data.summary.onTrack), color: BLUE },
-    { label: "Delayed", value: String(data.summary.delayed), color: RED },
-    { label: "Overdue", value: String(data.summary.overdue), color: AMBER },
+    { label: "At-risk", value: String(data.summary.atRisk), color: AMBER },
+    { label: "Overdue", value: String(data.summary.overdue), color: RED },
   ];
   const boxW = (CW - 4 * 4) / 5;
 
@@ -170,9 +170,8 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
   const statusItems = [
     { label: "Completed", count: data.summary.completed, pct: data.summary.totalItems > 0 ? data.summary.completed / data.summary.totalItems : 0, color: GREEN },
     { label: "On Track", count: data.summary.onTrack, pct: data.summary.totalItems > 0 ? data.summary.onTrack / data.summary.totalItems : 0, color: BLUE },
-    { label: "Not Started", count: data.summary.notStarted, pct: data.summary.totalItems > 0 ? data.summary.notStarted / data.summary.totalItems : 0, color: GRAY },
-    { label: "Delayed", count: data.summary.delayed, pct: data.summary.totalItems > 0 ? data.summary.delayed / data.summary.totalItems : 0, color: RED },
-    { label: "Overdue", count: data.summary.overdue, pct: data.summary.totalItems > 0 ? data.summary.overdue / data.summary.totalItems : 0, color: AMBER },
+    { label: "At-risk", count: data.summary.atRisk, pct: data.summary.totalItems > 0 ? data.summary.atRisk / data.summary.totalItems : 0, color: AMBER },
+    { label: "Overdue", count: data.summary.overdue, pct: data.summary.totalItems > 0 ? data.summary.overdue / data.summary.totalItems : 0, color: RED },
   ];
   statusItems.forEach((si) => {
     doc.setFontSize(8);
@@ -224,7 +223,7 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
     { text: "Total", x: M + 64, w: 14, align: "center" as const },
     { text: "Done", x: M + 78, w: 14, align: "center" as const },
     { text: "On Track", x: M + 92, w: 18, align: "center" as const },
-    { text: "Delayed", x: M + 110, w: 16, align: "center" as const },
+    { text: "At-risk", x: M + 110, w: 16, align: "center" as const },
     { text: "Overdue", x: M + 126, w: 16, align: "center" as const },
     { text: "Completion", x: M + 142, w: 28, align: "center" as const },
   ];
@@ -242,7 +241,7 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
       { text: String(ws.total), x: M + 64, w: 14, align: "center" as const },
       { text: String(ws.completed), x: M + 78, w: 14, align: "center" as const },
       { text: String(ws.onTrack), x: M + 92, w: 18, align: "center" as const },
-      { text: String(ws.delayed), x: M + 110, w: 16, align: "center" as const },
+      { text: String(ws.atRisk), x: M + 110, w: 16, align: "center" as const },
       { text: String(ws.overdue), x: M + 126, w: 16, align: "center" as const },
       { text: fmtPct(ws.completionPct), x: M + 142, w: 28, align: "center" as const },
     ];

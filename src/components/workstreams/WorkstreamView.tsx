@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { ActionItem, Dependency } from "@/types";
 import { STATUS_COLORS, formatDate, HEALTH_COLORS } from "@/lib/utils";
-import { computeHealth, isOverdue } from "@/lib/dashboard";
+import { computeHealth, computeStatus } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
 interface CategorySummaryRow {
@@ -18,8 +18,7 @@ interface Stats {
   total: number;
   completed: number;
   onTrack: number;
-  delayed: number;
-  notStarted: number;
+  atRisk: number;
   overdue: number;
 }
 
@@ -41,7 +40,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const health = computeHealth(stats.total, stats.completed, stats.overdue, stats.delayed);
+  const health = computeHealth(stats.total, stats.completed, stats.overdue, stats.atRisk);
   const healthColor = HEALTH_COLORS[health];
   const completionPct = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
 
@@ -156,9 +155,8 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
         <div className="flex gap-2 flex-wrap justify-end">
           <StatPill label="Completed" value={stats.completed} color="text-green-600" bg="bg-green-50" />
           <StatPill label="On-track" value={stats.onTrack} color="text-blue-600" bg="bg-blue-50" />
-          <StatPill label="Not Started" value={stats.notStarted} color="text-slate-500" bg="bg-slate-100" />
-          <StatPill label="Delayed" value={stats.delayed} color="text-red-600" bg="bg-red-50" />
-          <StatPill label="Overdue" value={stats.overdue} color="text-amber-600" bg="bg-amber-50" />
+          <StatPill label="At-risk" value={stats.atRisk} color="text-amber-600" bg="bg-amber-50" />
+          <StatPill label="Overdue" value={stats.overdue} color="text-red-600" bg="bg-red-50" />
         </div>
       </div>
 
@@ -166,7 +164,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
       <div className="space-y-5">
         {Array.from(categories.entries()).map(([category, catItems]) => {
           const catSummary = categorySummaries.find((cs) => cs.category === category);
-          const catCompleted = catItems.filter((i) => i.status === "Completed").length;
+          const catCompleted = catItems.filter((i) => computeStatus(i) === "Completed").length;
           const catPct = catItems.length > 0 ? (catCompleted / catItems.length) * 100 : 0;
 
           return (
@@ -199,7 +197,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                         requirement: "",
                         action: "",
                         owner: "",
-                        status: "Not Started",
+                        status: "On-track",
                         startDate: new Date().toISOString().split("T")[0],
                         duration: 14,
                         endDate: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
@@ -233,7 +231,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                 </thead>
                 <tbody>
                   {catItems.map((item) => {
-                    const od = isOverdue(item);
+                    const status = computeStatus(item);
                     const predId = predMap.get(item.id);
                     const pred = predId ? itemMap.get(predId) : null;
 
@@ -254,11 +252,11 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                           <span
                             className="px-1.5 py-0.5 rounded text-xs font-medium"
                             style={{
-                              backgroundColor: STATUS_COLORS[od ? "Overdue" : item.status] + "20",
-                              color: STATUS_COLORS[od ? "Overdue" : item.status],
+                              backgroundColor: STATUS_COLORS[status] + "20",
+                              color: STATUS_COLORS[status],
                             }}
                           >
-                            {od ? "Overdue" : item.status}
+                            {status}
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">

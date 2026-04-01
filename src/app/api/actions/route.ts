@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
         requirement: body.requirement || "",
         action: body.action || "",
         owner: body.owner || "",
-        status: body.status || "Not Started",
+        status: body.status || "On-track",
         startDate: body.startDate,
         duration: body.duration || 0,
         endDate: body.endDate,

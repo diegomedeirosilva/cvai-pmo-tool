@@ -20,19 +20,17 @@ export function formatPct(val: number): string {
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  "Not Started": "#94A3B8",
-  "On-track": "#3B82F6",
   "Completed": "#22C55E",
-  "Delayed": "#EF4444",
-  "Overdue": "#F59E0B",
+  "On-track": "#3B82F6",
+  "At-risk": "#F59E0B",
+  "Overdue": "#EF4444",
 };
 
 export const STATUS_BG: Record<string, string> = {
-  "Not Started": "bg-slate-200 text-slate-700",
-  "On-track": "bg-blue-100 text-blue-700",
   "Completed": "bg-green-100 text-green-700",
-  "Delayed": "bg-red-100 text-red-700",
-  "Overdue": "bg-amber-100 text-amber-700",
+  "On-track": "bg-blue-100 text-blue-700",
+  "At-risk": "bg-amber-100 text-amber-700",
+  "Overdue": "bg-red-100 text-red-700",
 };
 
 export const SEVERITY_COLORS: Record<string, string> = {

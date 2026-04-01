@@ -2,8 +2,7 @@ interface Props {
   total: number;
   completed: number;
   onTrack: number;
-  notStarted: number;
-  delayed: number;
+  atRisk: number;
   overdue: number;
 }
 
@@ -29,7 +28,7 @@ function Metric({ label, value, pct, color, bg }: MetricProps) {
   );
 }
 
-export default function MetricsRow({ total, completed, onTrack, notStarted, delayed, overdue }: Props) {
+export default function MetricsRow({ total, completed, onTrack, atRisk, overdue }: Props) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 h-full">
       <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">Key Metrics</div>
@@ -37,9 +36,8 @@ export default function MetricsRow({ total, completed, onTrack, notStarted, dela
         <Metric label="Total Items" value={total} color="text-slate-700" bg="bg-slate-50" />
         <Metric label="Completed" value={completed} pct={total ? (completed / total) * 100 : 0} color="text-green-600" bg="bg-green-50" />
         <Metric label="On-track" value={onTrack} pct={total ? (onTrack / total) * 100 : 0} color="text-blue-600" bg="bg-blue-50" />
-        <Metric label="Not Started" value={notStarted} pct={total ? (notStarted / total) * 100 : 0} color="text-slate-500" bg="bg-slate-100" />
-        <Metric label="Delayed" value={delayed} color="text-red-600" bg="bg-red-50" />
-        <Metric label="Overdue" value={overdue} color="text-amber-600" bg="bg-amber-50" />
+        <Metric label="At-risk" value={atRisk} pct={total ? (atRisk / total) * 100 : 0} color="text-amber-600" bg="bg-amber-50" />
+        <Metric label="Overdue" value={overdue} pct={total ? (overdue / total) * 100 : 0} color="text-red-600" bg="bg-red-50" />
       </div>
     </div>
   );

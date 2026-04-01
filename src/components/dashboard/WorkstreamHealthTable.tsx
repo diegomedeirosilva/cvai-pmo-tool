@@ -3,25 +3,16 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { WorkstreamHealth, ActionItem } from "@/types";
 import { HEALTH_COLORS } from "@/lib/utils";
+import { computeStatus, computeHealth } from "@/lib/dashboard";
 
 interface CategoryHealth {
   category: string;
   total: number;
   completed: number;
   onTrack: number;
-  notStarted: number;
-  delayed: number;
+  atRisk: number;
   overdue: number;
   health: "Green" | "Amber" | "Red";
-}
-
-function computeHealth(total: number, completed: number, overdue: number, delayed: number): "Green" | "Amber" | "Red" {
-  if (total === 0) return "Green";
-  const overduePct = overdue / total;
-  const delayedPct = delayed / total;
-  if (overduePct > 0.15 || delayedPct > 0.15) return "Red";
-  if (overduePct > 0.05 || delayedPct > 0.05) return "Amber";
-  return "Green";
 }
 
 interface Props {
@@ -33,13 +24,9 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
   const [expandedWs, setExpandedWs] = useState<string | null>(null);
 
   const categoryMap = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const map = new Map<string, CategoryHealth[]>();
 
-    // Group items by workstream → category
-    const wsCategories = new Map<string, Map<string, { total: number; completed: number; onTrack: number; notStarted: number; delayed: number; overdue: number }>>();
+    const wsCategories = new Map<string, Map<string, { total: number; completed: number; onTrack: number; atRisk: number; overdue: number }>>();
 
     for (const item of items) {
       if (!wsCategories.has(item.workstream)) {
@@ -47,17 +34,16 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
       }
       const cats = wsCategories.get(item.workstream)!;
       if (!cats.has(item.category)) {
-        cats.set(item.category, { total: 0, completed: 0, onTrack: 0, notStarted: 0, delayed: 0, overdue: 0 });
+        cats.set(item.category, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
       }
       const c = cats.get(item.category)!;
       c.total++;
-      const isOverdue = item.status !== "Completed" && new Date(item.endDate) < today;
-      if (isOverdue) c.overdue++;
-      switch (item.status) {
+      const status = computeStatus(item);
+      switch (status) {
         case "Completed": c.completed++; break;
         case "On-track": c.onTrack++; break;
-        case "Not Started": c.notStarted++; break;
-        case "Delayed": c.delayed++; break;
+        case "At-risk": c.atRisk++; break;
+        case "Overdue": c.overdue++; break;
       }
     }
 
@@ -67,7 +53,7 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
         catHealthArr.push({
           category: cat,
           ...counts,
-          health: computeHealth(counts.total, counts.completed, counts.overdue, counts.delayed),
+          health: computeHealth(counts.total, counts.completed, counts.overdue, counts.atRisk),
         });
       }
       map.set(ws, catHealthArr);
@@ -89,7 +75,7 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
             <th className="text-left px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide">Progress</th>
             <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">Done</th>
             <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">On-track</th>
-            <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">Delayed</th>
+            <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">At-risk</th>
             <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">Overdue</th>
           </tr>
         </thead>
@@ -147,8 +133,8 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                   </td>
                   <td className="px-3 py-2.5 text-center text-xs text-green-600 font-medium">{ws.completed}</td>
                   <td className="px-3 py-2.5 text-center text-xs text-blue-600 font-medium">{ws.onTrack}</td>
-                  <td className="px-3 py-2.5 text-center text-xs text-red-600 font-medium">{ws.delayed || "—"}</td>
-                  <td className="px-3 py-2.5 text-center text-xs text-amber-600 font-medium">{ws.overdue || "—"}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-amber-600 font-medium">{ws.atRisk || "—"}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-red-600 font-medium">{ws.overdue || "—"}</td>
                 </tr>
                 {isExpanded && categories.map((cat) => {
                   const catPct = cat.total > 0 ? (cat.completed / cat.total) * 100 : 0;
@@ -181,8 +167,8 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                       </td>
                       <td className="px-3 py-2 text-center text-xs text-green-600">{cat.completed}</td>
                       <td className="px-3 py-2 text-center text-xs text-blue-600">{cat.onTrack}</td>
-                      <td className="px-3 py-2 text-center text-xs text-red-600">{cat.delayed || "—"}</td>
-                      <td className="px-3 py-2 text-center text-xs text-amber-600">{cat.overdue || "—"}</td>
+                      <td className="px-3 py-2 text-center text-xs text-amber-600">{cat.atRisk || "—"}</td>
+                      <td className="px-3 py-2 text-center text-xs text-red-600">{cat.overdue || "—"}</td>
                     </tr>
                   );
                 })}

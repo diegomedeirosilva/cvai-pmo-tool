@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
-import { ActionItem, CategorySummary, Dependency, Project, Status } from "@/types";
+import { ActionItem, CategorySummary, Dependency, Project } from "@/types";
+import { computeStatus } from "@/lib/dashboard";
 
 interface ParsedWorkbook {
   project: Omit<Project, "id" | "createdAt" | "updatedAt">;
@@ -56,13 +57,7 @@ function cleanText(val: unknown): string {
   return String(val).trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
 
-function parseStatus(val: unknown): Status {
-  const s = cleanText(val);
-  if (s === "On-track") return "On-track";
-  if (s === "Delayed") return "Delayed";
-  if (s === "Completed") return "Completed";
-  return "Not Started";
-}
+// parseStatus removed — status is now computed from dates and completion %
 
 // Parse a cell reference to column I: "I5", "=I5", "$I$5", "=$I$5", "'Sheet'!I5", etc.
 // ExcelJS returns formula strings WITHOUT the leading "=", so we handle both forms.
@@ -238,13 +233,13 @@ export async function parseExcelWorkplan(buffer: Buffer): Promise<ParsedWorkbook
       formulaDepsFound++;
     }
 
-    actionItems.push({
+    const itemData = {
       workstream,
       category,
       requirement: cleanText(requirementVal),
       action: cleanText(actionVal),
       owner: cleanText(ownerVal),
-      status: parseStatus(statusVal),
+      status: "On-track" as const, // placeholder — computed below
       startDate,
       duration,
       endDate,
@@ -252,7 +247,10 @@ export async function parseExcelWorkplan(buffer: Buffer): Promise<ParsedWorkbook
       actualCompletionPct: actualPct,
       notes: cleanText(notesVal),
       sortOrder: sortOrder++,
-    });
+    };
+    // Compute status from dates and completion rates
+    itemData.status = computeStatus(itemData) as typeof itemData.status;
+    actionItems.push(itemData);
   });
 
   // --- Resolve formula-based dependencies ---

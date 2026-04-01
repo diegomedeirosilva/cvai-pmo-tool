@@ -17,11 +17,12 @@ CREATE TABLE IF NOT EXISTS "action_items" (
   "requirement" text NOT NULL DEFAULT '',
   "action" text NOT NULL DEFAULT '',
   "owner" text NOT NULL DEFAULT '',
-  "status" text NOT NULL DEFAULT 'Not Started',
+  "status" text NOT NULL DEFAULT 'On-track',
   "start_date" date NOT NULL,
   "duration" integer NOT NULL DEFAULT 0,
   "end_date" date NOT NULL,
   "target_completion_pct" real NOT NULL DEFAULT 0,
+  "actual_completion_pct" real NOT NULL DEFAULT 0,
   "notes" text NOT NULL DEFAULT '',
   "sort_order" integer NOT NULL DEFAULT 0,
   "created_at" timestamp NOT NULL DEFAULT now(),
@@ -63,6 +64,20 @@ CREATE TABLE IF NOT EXISTS "uploads" (
   "file_name" text NOT NULL,
   "item_count" integer NOT NULL DEFAULT 0,
   "snapshot" jsonb NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS "snapshots" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "snapshot_date" date NOT NULL,
+  "total_items" integer NOT NULL DEFAULT 0,
+  "completed" integer NOT NULL DEFAULT 0,
+  "on_track" integer NOT NULL DEFAULT 0,
+  "at_risk" integer NOT NULL DEFAULT 0,
+  "overdue" integer NOT NULL DEFAULT 0,
+  "overall_health" text NOT NULL DEFAULT 'Green',
+  "workstream_data" jsonb NOT NULL DEFAULT '[]',
+  "source" text NOT NULL DEFAULT 'manual',
+  "created_at" timestamp NOT NULL DEFAULT now()
 );
 
 -- Indexes for common queries

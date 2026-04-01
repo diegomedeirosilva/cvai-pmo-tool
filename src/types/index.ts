@@ -1,4 +1,4 @@
-export type Status = "Not Started" | "On-track" | "Delayed" | "Completed";
+export type Status = "Completed" | "On-track" | "At-risk" | "Overdue";
 export type RiskSeverity = "Critical" | "High" | "Medium" | "Low";
 export type RiskStatus = "Open" | "Acknowledged" | "Mitigated" | "Closed";
 export type RiskType =
@@ -83,8 +83,7 @@ export interface WorkstreamHealth {
   total: number;
   completed: number;
   onTrack: number;
-  notStarted: number;
-  delayed: number;
+  atRisk: number;
   overdue: number;
   completionPct: number;
 }
@@ -96,8 +95,7 @@ export interface DashboardSummary {
   totalItems: number;
   completed: number;
   onTrack: number;
-  notStarted: number;
-  delayed: number;
+  atRisk: number;
   overdue: number;
   workstreamHealth: WorkstreamHealth[];
   upcomingMilestones: ActionItem[];
@@ -110,8 +108,7 @@ export interface Snapshot {
   totalItems: number;
   completed: number;
   onTrack: number;
-  notStarted: number;
-  delayed: number;
+  atRisk: number;
   overdue: number;
   overallHealth: "Green" | "Amber" | "Red";
   workstreamData: WorkstreamHealth[];
@@ -124,8 +121,7 @@ export interface OwnerStats {
   total: number;
   completed: number;
   onTrack: number;
-  notStarted: number;
-  delayed: number;
+  atRisk: number;
   overdue: number;
   dueSoon7: number;
   dueSoon14: number;

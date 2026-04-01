@@ -57,8 +57,7 @@ export default function TrendsClient({ snapshots: initial }: Props) {
     completionPct: s.totalItems > 0 ? Math.round((s.completed / s.totalItems) * 100) : 0,
     completed: s.completed,
     onTrack: s.onTrack,
-    notStarted: s.notStarted,
-    delayed: s.delayed,
+    atRisk: s.atRisk,
     overdue: s.overdue,
     total: s.totalItems,
     health: s.overallHealth,
@@ -150,8 +149,8 @@ export default function TrendsClient({ snapshots: initial }: Props) {
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Area type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
                 <Area type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
-                <Area type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />
-                <Area type="monotone" dataKey="delayed" stackId="1" fill="#EF4444" stroke="#EF4444" name="Delayed" />
+                <Area type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
+                <Area type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

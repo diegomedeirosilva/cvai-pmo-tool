@@ -2,6 +2,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ActionItem, Dependency, Project } from "@/types";
 import { STATUS_COLORS, formatDate, formatPct } from "@/lib/utils";
+import { computeStatus } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
 interface Props {
@@ -216,8 +217,8 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
             <p className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wider">Longest critical chain</p>
             <div className="flex items-center gap-1 flex-wrap">
               {chain.map((item, i) => {
-                const isOverdue = item.status !== "Completed" && new Date(item.endDate) < today;
-                const color = isOverdue ? "#F59E0B" : STATUS_COLORS[item.status] || STATUS_COLORS["Not Started"];
+                const status = computeStatus(item);
+                const color = STATUS_COLORS[status] || STATUS_COLORS["On-track"];
                 const f = floatDays[item.id] ?? 0;
                 return (
                   <div key={item.id} className="flex items-center gap-1">
@@ -233,7 +234,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
                         {item.duration}d · {item.owner.split("/")[0]}
                       </div>
                       <div className="mt-1 px-1.5 py-0.5 rounded text-white text-center w-full" style={{ backgroundColor: color, fontSize: 9 }}>
-                        {item.status}
+                        {status}
                       </div>
                       {f < 0 && (
                         <div className="mt-0.5 text-red-600 font-bold text-center" style={{ fontSize: 9 }}>
@@ -261,7 +262,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
               <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">All Critical Items ({criticalItems.length})</span>
             </div>
             {criticalItems.map((item) => {
-              const isOverdue = item.status !== "Completed" && new Date(item.endDate) < today;
+              const status = computeStatus(item);
               const f = floatDays[item.id] ?? 0;
               return (
                 <div
@@ -272,7 +273,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0 mr-2" />
                   <span className="truncate text-slate-700 flex-1">{item.requirement || item.action.slice(0, 40)}</span>
-                  {isOverdue && <span className="ml-1 text-amber-600 font-medium flex-shrink-0">LATE</span>}
+                  {status === "Overdue" && <span className="ml-1 text-red-600 font-medium flex-shrink-0">LATE</span>}
                   {f < 0 && <span className="ml-1 text-red-600 font-medium flex-shrink-0">{f}d</span>}
                 </div>
               );
@@ -308,8 +309,8 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
                 const endX = dateToX(item.endDate);
                 const width = Math.max(endX - x, 4);
                 const y = HEADER_HEIGHT + idx * ROW_HEIGHT + BAR_PADDING;
-                const isOverdue = item.status !== "Completed" && new Date(item.endDate) < today;
-                const color = isOverdue ? "#F59E0B" : STATUS_COLORS[item.status] || STATUS_COLORS["Not Started"];
+                const itemStatus = computeStatus(item);
+                const color = STATUS_COLORS[itemStatus] || STATUS_COLORS["On-track"];
                 const f = floatDays[item.id] ?? 0;
                 const barColor = f < 0 ? "#EF4444" : color;
 
@@ -357,7 +358,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
               </thead>
               <tbody>
                 {criticalItems.map((item, idx) => {
-                  const isOverdue = item.status !== "Completed" && new Date(item.endDate) < today;
+                  const tableStatus = computeStatus(item);
                   const f = floatDays[item.id] ?? 0;
                   return (
                     <tr
@@ -376,13 +377,12 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
                       <td className="px-3 py-2 text-slate-600">{item.owner}</td>
                       <td className="px-3 py-2">
                         <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                          isOverdue ? "bg-amber-100 text-amber-700" :
-                          item.status === "Completed" ? "bg-green-100 text-green-700" :
-                          item.status === "On-track" ? "bg-blue-100 text-blue-700" :
-                          item.status === "Delayed" ? "bg-red-100 text-red-700" :
-                          "bg-slate-100 text-slate-600"
+                          tableStatus === "Overdue" ? "bg-red-100 text-red-700" :
+                          tableStatus === "At-risk" ? "bg-amber-100 text-amber-700" :
+                          tableStatus === "Completed" ? "bg-green-100 text-green-700" :
+                          "bg-blue-100 text-blue-700"
                         }`}>
-                          {isOverdue ? "Overdue" : item.status}
+                          {tableStatus}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-slate-600">{formatDate(item.startDate)}</td>

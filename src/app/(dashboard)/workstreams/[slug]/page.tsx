@@ -2,7 +2,7 @@ import { db, actionItems, dependencies, categorySummaries } from "@/lib/db";
 import { asc, eq } from "drizzle-orm";
 import { ActionItem, Dependency } from "@/types";
 import WorkstreamView from "@/components/workstreams/WorkstreamView";
-import { isOverdue } from "@/lib/dashboard";
+import { computeStatus } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -36,11 +36,10 @@ export default async function WorkstreamPage({ params }: Props) {
 
   const stats = {
     total: typedItems.length,
-    completed: typedItems.filter((i) => i.status === "Completed").length,
-    onTrack: typedItems.filter((i) => i.status === "On-track").length,
-    delayed: typedItems.filter((i) => i.status === "Delayed").length,
-    notStarted: typedItems.filter((i) => i.status === "Not Started").length,
-    overdue: typedItems.filter((i) => isOverdue(i)).length,
+    completed: typedItems.filter((i) => computeStatus(i) === "Completed").length,
+    onTrack: typedItems.filter((i) => computeStatus(i) === "On-track").length,
+    atRisk: typedItems.filter((i) => computeStatus(i) === "At-risk").length,
+    overdue: typedItems.filter((i) => computeStatus(i) === "Overdue").length,
   };
 
   return (

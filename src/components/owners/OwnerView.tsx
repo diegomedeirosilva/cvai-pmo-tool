@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { OwnerStats } from "@/types";
 import { STATUS_COLORS, formatDate } from "@/lib/utils";
+import { computeStatus } from "@/lib/dashboard";
 
 interface Props {
   ownerStats: OwnerStats[];
@@ -14,9 +15,6 @@ export default function OwnerView({ ownerStats }: Props) {
   const [sortBy, setSortBy] = useState<SortKey>("total");
 
   const sorted = [...ownerStats].sort((a, b) => b[sortBy] - a[sortBy]);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   return (
     <div className="p-6">
@@ -70,13 +68,13 @@ export default function OwnerView({ ownerStats }: Props) {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-slate-800 text-sm">{owner.owner}</span>
                     {owner.overdue > 0 && (
-                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded font-medium">
+                      <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded font-medium">
                         {owner.overdue} overdue
                       </span>
                     )}
-                    {owner.delayed > 0 && (
-                      <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded font-medium">
-                        {owner.delayed} delayed
+                    {owner.atRisk > 0 && (
+                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded font-medium">
+                        {owner.atRisk} at-risk
                       </span>
                     )}
                   </div>
@@ -121,7 +119,7 @@ export default function OwnerView({ ownerStats }: Props) {
                       {owner.items
                         .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
                         .map((item) => {
-                          const isOverdue = item.status !== "Completed" && new Date(item.endDate) < today;
+                          const status = computeStatus(item);
                           return (
                             <tr key={item.id} className="border-t border-slate-100 hover:bg-slate-50">
                               <td className="px-4 py-2 text-slate-700 max-w-xs">
@@ -135,16 +133,16 @@ export default function OwnerView({ ownerStats }: Props) {
                                 <span
                                   className="px-1.5 py-0.5 rounded text-xs font-medium"
                                   style={{
-                                    backgroundColor: STATUS_COLORS[isOverdue ? "Overdue" : item.status] + "20",
-                                    color: STATUS_COLORS[isOverdue ? "Overdue" : item.status],
+                                    backgroundColor: STATUS_COLORS[status] + "20",
+                                    color: STATUS_COLORS[status],
                                   }}
                                 >
-                                  {isOverdue ? "Overdue" : item.status}
+                                  {status}
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-slate-500">{formatDate(item.endDate)}</td>
                               <td className="px-4 py-2 text-right text-slate-500">
-                                {Math.round(item.targetCompletionPct * 100)}%
+                                {Math.round(item.actualCompletionPct * 100)}%
                               </td>
                             </tr>
                           );

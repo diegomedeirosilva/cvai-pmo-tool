@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, uploads, snapshots } from "@/lib/db";
 import { asc } from "drizzle-orm";
-import { computeHealth } from "@/lib/dashboard";
+import { computeHealth, computeStatus } from "@/lib/dashboard";
 import { ActionItem } from "@/types";
 
 export async function POST() {
@@ -13,35 +13,36 @@ export async function POST() {
       const items = upload.snapshot as unknown as ActionItem[];
       if (!items || items.length === 0) continue;
 
-      let completed = 0, onTrack = 0, notStarted = 0, delayed = 0, overdue = 0;
-      const wsMap = new Map<string, { total: number; completed: number; onTrack: number; notStarted: number; delayed: number; overdue: number }>();
+      let completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
+      const wsMap = new Map<string, { total: number; completed: number; onTrack: number; atRisk: number; overdue: number }>();
 
       for (const item of items) {
-        switch (item.status) {
+        const status = computeStatus(item);
+        switch (status) {
           case "Completed": completed++; break;
           case "On-track": onTrack++; break;
-          case "Not Started": notStarted++; break;
-          case "Delayed": delayed++; overdue++; break;
+          case "At-risk": atRisk++; break;
+          case "Overdue": overdue++; break;
         }
 
         if (!wsMap.has(item.workstream)) {
-          wsMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, notStarted: 0, delayed: 0, overdue: 0 });
+          wsMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
         }
         const ws = wsMap.get(item.workstream)!;
         ws.total++;
-        switch (item.status) {
+        switch (status) {
           case "Completed": ws.completed++; break;
           case "On-track": ws.onTrack++; break;
-          case "Not Started": ws.notStarted++; break;
-          case "Delayed": ws.delayed++; ws.overdue++; break;
+          case "At-risk": ws.atRisk++; break;
+          case "Overdue": ws.overdue++; break;
         }
       }
 
       const workstreamData = Array.from(wsMap.entries()).map(([ws, c]) => ({
         workstream: ws,
-        health: computeHealth(c.total, c.completed, c.overdue, c.delayed),
+        health: computeHealth(c.total, c.completed, c.overdue, c.atRisk),
         total: c.total, completed: c.completed, onTrack: c.onTrack,
-        notStarted: c.notStarted, delayed: c.delayed, overdue: c.overdue,
+        atRisk: c.atRisk, overdue: c.overdue,
         completionPct: c.total > 0 ? c.completed / c.total : 0,
       }));
 
@@ -50,8 +51,8 @@ export async function POST() {
       await db.insert(snapshots).values({
         snapshotDate,
         totalItems: items.length,
-        completed, onTrack, notStarted, delayed, overdue,
-        overallHealth: computeHealth(items.length, completed, overdue, delayed),
+        completed, onTrack, atRisk, overdue,
+        overallHealth: computeHealth(items.length, completed, overdue, atRisk),
         workstreamData,
         source: "upload",
       });

@@ -47,13 +47,12 @@ export default function DashboardClient({ summary, risks, items }: Props) {
     .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99))
     .slice(0, 5);
 
-  const { totalItems: total, completed, onTrack, notStarted, delayed, overdue } = summary;
+  const { totalItems: total, completed, onTrack, atRisk, overdue } = summary;
   const pieData = [
     { name: "Completed", value: completed, color: "#22C55E" },
     { name: "On-track", value: onTrack, color: "#3B82F6" },
-    { name: "Not Started", value: notStarted, color: "#94A3B8" },
-    { name: "Delayed", value: delayed, color: "#EF4444" },
-    { name: "Overdue", value: overdue, color: "#F59E0B" },
+    { name: "At-risk", value: atRisk, color: "#F59E0B" },
+    { name: "Overdue", value: overdue, color: "#EF4444" },
   ].filter((d) => d.value > 0);
 
   const health = summary.overallHealth;
@@ -131,9 +130,8 @@ export default function DashboardClient({ summary, risks, items }: Props) {
               {[
                 { label: "Done", value: completed, color: "#22C55E" },
                 { label: "On-track", value: onTrack, color: "#3B82F6" },
-                { label: "Pending", value: notStarted, color: "#94A3B8" },
-                { label: "Delayed", value: delayed, color: "#EF4444" },
-                { label: "Overdue", value: overdue, color: "#F59E0B" },
+                { label: "At-risk", value: atRisk, color: "#F59E0B" },
+                { label: "Overdue", value: overdue, color: "#EF4444" },
                 { label: "Total", value: total, color: "#475569" },
               ].map(({ label, value, color }) => (
                 <div key={label} className="flex flex-col items-center flex-1">

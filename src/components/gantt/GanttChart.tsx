@@ -178,7 +178,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
       for (const item of group.items) {
         if (item.startDate < minStart) minStart = item.startDate;
         if (item.endDate > maxEnd) maxEnd = item.endDate;
-        if (item.status === "Completed") completed++;
+        if (item.actualCompletionPct >= 1.0) completed++;
       }
       stats.set(group.label, {
         minStart,
@@ -243,9 +243,11 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
   const day1X = project ? dateToX(project.day1TargetDate) : null;
 
   function getBarColor(item: ActionItem): string {
-    const isOverdue = item.status !== "Completed" && new Date(item.endDate) < today;
-    if (isOverdue) return STATUS_COLORS["Overdue"];
-    return STATUS_COLORS[item.status] || STATUS_COLORS["Not Started"];
+    const status = item.actualCompletionPct >= 1.0 ? "Completed"
+      : new Date(item.endDate) < today ? "Overdue"
+      : item.actualCompletionPct < item.targetCompletionPct ? "At-risk"
+      : "On-track";
+    return STATUS_COLORS[status] || STATUS_COLORS["On-track"];
   }
 
   function handleBarClick(item: ActionItem) {
@@ -690,7 +692,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                       </text>
                     )}
                     {!isDragging && width > 50 && (
-                      <text x={x + 4} y={y + BAR_HEIGHT / 2 + 4} fontSize={10} fill={item.status === "Not Started" ? "#475569" : "white"} style={{ pointerEvents: "none" }}>
+                      <text x={x + 4} y={y + BAR_HEIGHT / 2 + 4} fontSize={10} fill="white" style={{ pointerEvents: "none" }}>
                         {(item.requirement || item.owner).slice(0, Math.floor(width / 6.5))}
                       </text>
                     )}

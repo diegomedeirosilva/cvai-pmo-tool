@@ -16,16 +16,16 @@ export async function POST() {
       });
     }
 
-    const projectRows = await db.select().from(projects).limit(1);
+    // Run all DB queries in parallel for speed
+    const [projectRows, items, riskRows] = await Promise.all([
+      db.select().from(projects).limit(1),
+      db.select().from(actionItems).orderBy(asc(actionItems.sortOrder)),
+      db.select().from(risks),
+    ]);
+
     if (projectRows.length === 0) {
       return NextResponse.json({ summary: "No project data loaded yet." });
     }
-
-    const items = await db
-      .select()
-      .from(actionItems)
-      .orderBy(asc(actionItems.sortOrder));
-    const riskRows = await db.select().from(risks);
 
     const summary = buildDashboardSummary(
       projectRows[0] as unknown as Project,

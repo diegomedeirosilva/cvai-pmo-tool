@@ -22,56 +22,43 @@ export interface SummaryContext {
 
 function buildPrompt(ctx: SummaryContext): string {
   const wsSummary = ctx.workstreamSummary
-    .map(
-      (ws) =>
-        `${ws.workstream}: ${ws.completed}/${ws.total} completed, ${ws.overdue} overdue, health: ${ws.health}`
-    )
-    .join("; ");
-
-  const milestonesText = ctx.upcomingMilestones
-    .map((m) => `${m.requirement} (${m.owner}, due ${m.endDate})`)
+    .map((ws) => `${ws.workstream}: ${ws.completed}/${ws.total} done, ${ws.overdue} overdue, ${ws.health}`)
     .join("; ");
 
   const risksText = ctx.topRisks
     .slice(0, 3)
-    .map((r) => `[${r.severity}] ${r.description.slice(0, 100)}`)
+    .map((r) => `[${r.severity}] ${r.description.slice(0, 80)}`)
     .join("; ");
 
-  return `You are a PMO analyst writing a brief status summary for a consulting project.
+  return `Executive PMO briefing. Be terse — max 1 sentence per bullet. No filler.
 
-Project: ${ctx.projectTitle}
-Day-1 target: ${ctx.day1TargetDate}
-Days remaining: ${ctx.daysRemaining}
-Total items: ${ctx.total}, Not Started: ${ctx.notStarted}, Completed: ${ctx.completed}, On-track: ${ctx.onTrack}, At-risk: ${ctx.atRisk}, Overdue: ${ctx.overdue}
-Workstream summaries: ${wsSummary}
-Top risks: ${risksText || "None detected"}
-Upcoming milestones (next 14 days) — ${ctx.upcomingMilestones.length} total: ${milestonesText || "None"}
+Data:
+- Project: ${ctx.projectTitle} | Day-1: ${ctx.day1TargetDate} | ${ctx.daysRemaining} days left
+- Items: ${ctx.total} total, ${ctx.completed} done, ${ctx.onTrack} on-track, ${ctx.atRisk} at-risk, ${ctx.overdue} overdue, ${ctx.notStarted} not started
+- Workstreams: ${wsSummary}
+- Risks: ${risksText || "None"}
 
-Write exactly 5-6 bullet points as a structured executive briefing. Each bullet must start with a bold topic label followed by a colon, then the insight.
-
-Format each line as: **Topic**: Insight text here.
-
-Example format:
-**Overall Status**: Project is X days from Day-1 with Y of Z items completed across N workstreams.
-**Key Progress**: [Specific workstream achievements with numbers]
-**Critical Risks**: [Top 1-2 risks with owner names and specific impact]
-**Upcoming Milestones**: [What's due in next 14 days and who owns it]
-**Attention Required**: [What needs immediate action and from whom]
-
-Be specific — mention workstream names, owner names, and exact numbers. Tone: professional, direct, McKinsey-style. No filler. Each bullet should deliver a distinct insight. Return ONLY the bullet lines, nothing else.`;
+Write exactly 4 bullets. Format: **Label**: One concise sentence with specific numbers/names.
+Use these labels: Overall Status, Key Risks, Blockers, Next Steps.
+Return ONLY the 4 bullet lines.`;
 }
+
+// Cache SDK imports so we don't re-import on every request
+let _anthropicModule: any = null;
 
 // Anthropic provider
 async function createAnthropicProvider(): Promise<AIProvider> {
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  if (!_anthropicModule) {
+    _anthropicModule = await import("@anthropic-ai/sdk");
+  }
+  const client = new _anthropicModule.default({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   return {
     isAvailable: () => !!process.env.ANTHROPIC_API_KEY,
     async generateSummary(ctx) {
       const message = await client.messages.create({
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-        max_tokens: 1024,
+        max_tokens: 400,
         messages: [{ role: "user", content: buildPrompt(ctx) }],
       });
       const block = message.content[0];
@@ -81,17 +68,22 @@ async function createAnthropicProvider(): Promise<AIProvider> {
   };
 }
 
+// Cache SDK imports
+let _openaiModule: any = null;
+
 // OpenAI provider
 async function createOpenAIProvider(): Promise<AIProvider> {
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  if (!_openaiModule) {
+    _openaiModule = await import("openai");
+  }
+  const client = new _openaiModule.default({ apiKey: process.env.OPENAI_API_KEY });
 
   return {
     isAvailable: () => !!process.env.OPENAI_API_KEY,
     async generateSummary(ctx) {
       const completion = await client.chat.completions.create({
-        model: "gpt-4o",
-        max_tokens: 1024,
+        model: "gpt-4o-mini",
+        max_tokens: 400,
         messages: [{ role: "user", content: buildPrompt(ctx) }],
       });
       return completion.choices[0]?.message?.content || "";

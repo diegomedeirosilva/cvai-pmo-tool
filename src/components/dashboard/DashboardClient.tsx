@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { HEALTH_COLORS } from "@/lib/utils";
 import WorkstreamHealthTable from "./WorkstreamHealthTable";
 import MilestonesCard from "./MilestonesCard";
+import AttentionCard from "./AttentionCard";
 import AISummaryCard from "./AISummaryCard";
 import ActionItemModal from "../shared/ActionItemModal";
 
@@ -75,7 +76,10 @@ export default function DashboardClient({ summary, risks, items }: Props) {
         </div>
       </div>
 
-      {/* Top row: countdown+health stacked + pie metrics + top risks */}
+      {/* Row 1: AI Executive Briefing — full width */}
+      <AISummaryCard summary={aiSummary} loading={aiLoading} error={aiError} onRetry={loadAISummary} />
+
+      {/* Row 2: countdown+health + pie metrics + workstream health table */}
       <div className="grid grid-cols-12 gap-4">
 
         {/* Countdown + Health — stacked vertically */}
@@ -103,11 +107,10 @@ export default function DashboardClient({ summary, risks, items }: Props) {
           </div>
         </div>
 
-        {/* Key Metrics — larger donut */}
+        {/* Key Metrics — donut chart */}
         <div className="col-span-3">
           <div className="bg-white rounded-xl border border-slate-200 p-3 h-full flex flex-col">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Key Metrics</div>
-            {/* Pie chart — enlarged */}
             <div className="flex justify-center flex-1 min-h-0" style={{ height: 150 }}>
               <ResponsiveContainer width="80%" height="100%">
                 <PieChart>
@@ -126,7 +129,6 @@ export default function DashboardClient({ summary, risks, items }: Props) {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            {/* Single stat row */}
             <div className="flex items-center justify-between mt-2 gap-1">
               {[
                 { label: "Not Started", value: notStarted, color: "#94A3B8" },
@@ -145,60 +147,56 @@ export default function DashboardClient({ summary, risks, items }: Props) {
           </div>
         </div>
 
-        {/* Top Risks — expanded to fill freed space */}
+        {/* Workstream Health Table — fills remaining space */}
         <div className="col-span-7">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 h-full">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Top Risks</div>
-              <a href="/risks" className="text-xs text-blue-500 hover:underline">View all →</a>
-            </div>
-            {topRisks.length === 0 ? (
-              <p className="text-xs text-slate-400 mt-2">No open risks detected.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {topRisks.map((risk, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedRisk(risk)}
-                    className="w-full flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 text-left transition-colors"
-                  >
-                    <span className={`flex-shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-xs font-medium ${
-                      risk.severity === "Critical" ? "bg-red-600 text-white" :
-                      risk.severity === "High" ? "bg-red-100 text-red-700" :
-                      risk.severity === "Medium" ? "bg-amber-100 text-amber-700" :
-                      "bg-slate-100 text-slate-600"
-                    }`}>
-                      {risk.severity.slice(0, 4)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-slate-700 leading-snug line-clamp-2">
-                        {risk.description}
-                      </div>
-                      {risk.workstream && (
-                        <div className="text-xs text-slate-400 mt-0.5">{risk.workstream} · {risk.type}</div>
-                      )}
-                    </div>
-                    <span className="text-slate-300 text-xs flex-shrink-0">›</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Middle row: workstream health + milestones */}
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-8">
           <WorkstreamHealthTable workstreams={summary.workstreamHealth} items={items} />
         </div>
-        <div className="col-span-4">
-          <MilestonesCard milestones={summary.upcomingMilestones} onItemClick={setSelectedItem} />
-        </div>
       </div>
 
-      {/* Bottom: AI Summary */}
-      <AISummaryCard summary={aiSummary} loading={aiLoading} error={aiError} onRetry={loadAISummary} />
+      {/* Row 3: Attention Required + Upcoming Milestones — 50/50 */}
+      <div className="grid grid-cols-2 gap-4">
+        <AttentionCard items={allItems} onItemClick={setSelectedItem} />
+        <MilestonesCard milestones={summary.upcomingMilestones} onItemClick={setSelectedItem} />
+      </div>
+
+      {/* Row 4: Top Risks — full width */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-slate-500 uppercase tracking-wider">Top Risks</div>
+          <a href="/risks" className="text-xs text-blue-500 hover:underline">View all →</a>
+        </div>
+        {topRisks.length === 0 ? (
+          <p className="text-xs text-slate-400 mt-2">No open risks detected.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {topRisks.map((risk, i) => (
+              <button
+                key={i}
+                onClick={() => setSelectedRisk(risk)}
+                className="w-full flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 text-left transition-colors"
+              >
+                <span className={`flex-shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-xs font-medium ${
+                  risk.severity === "Critical" ? "bg-red-600 text-white" :
+                  risk.severity === "High" ? "bg-red-100 text-red-700" :
+                  risk.severity === "Medium" ? "bg-amber-100 text-amber-700" :
+                  "bg-slate-100 text-slate-600"
+                }`}>
+                  {risk.severity.slice(0, 4)}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-slate-700 leading-snug line-clamp-2">
+                    {risk.description}
+                  </div>
+                  {risk.workstream && (
+                    <div className="text-xs text-slate-400 mt-0.5">{risk.workstream} · {risk.type}</div>
+                  )}
+                </div>
+                <span className="text-slate-300 text-xs flex-shrink-0">›</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Action item modal */}
       {selectedItem && (

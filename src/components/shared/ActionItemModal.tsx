@@ -23,7 +23,7 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
       requirement: "",
       action: "",
       owner: "",
-      status: "On-track",
+      status: "Not Started",
       startDate: new Date().toISOString().split("T")[0],
       duration: 14,
       endDate: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],

@@ -5,15 +5,17 @@ import { differenceInCalendarDays } from "date-fns";
  * Compute status automatically from dates and completion percentages.
  * - Completed: actualCompletionPct >= 1.0
  * - Overdue: end date is in the past and not completed
+ * - Not Started: actualCompletionPct === 0 and start date is today or in the future
  * - At-risk: not completed, not overdue, but actual completion < target completion
  * - On-track: everything else
  */
-export function computeStatus(item: { endDate: string; actualCompletionPct: number; targetCompletionPct: number }): Status {
+export function computeStatus(item: { startDate: string; endDate: string; actualCompletionPct: number; targetCompletionPct: number }): Status {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   if (item.actualCompletionPct >= 1.0) return "Completed";
   if (new Date(item.endDate) < today) return "Overdue";
+  if (item.actualCompletionPct === 0 && new Date(item.startDate) >= today) return "Not Started";
   if (item.actualCompletionPct < item.targetCompletionPct) return "At-risk";
   return "On-track";
 }
@@ -48,10 +50,10 @@ export function buildDashboardSummary(
 
   const daysToDay1 = differenceInCalendarDays(new Date(project.day1TargetDate), today);
 
-  let completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
+  let notStarted = 0, completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
   const workstreamMap = new Map<
     string,
-    { total: number; completed: number; onTrack: number; atRisk: number; overdue: number }
+    { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }
   >();
 
   for (const item of items) {
@@ -59,6 +61,7 @@ export function buildDashboardSummary(
     const status = computeStatus(item);
 
     switch (status) {
+      case "Not Started": notStarted++; break;
       case "Completed": completed++; break;
       case "On-track": onTrack++; break;
       case "At-risk": atRisk++; break;
@@ -66,11 +69,12 @@ export function buildDashboardSummary(
     }
 
     if (!workstreamMap.has(item.workstream)) {
-      workstreamMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
+      workstreamMap.set(item.workstream, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
     }
     const ws = workstreamMap.get(item.workstream)!;
     ws.total++;
     switch (status) {
+      case "Not Started": ws.notStarted++; break;
       case "Completed": ws.completed++; break;
       case "On-track": ws.onTrack++; break;
       case "At-risk": ws.atRisk++; break;
@@ -83,6 +87,7 @@ export function buildDashboardSummary(
       workstream: ws,
       health: computeHealth(counts.total, counts.completed, counts.overdue, counts.atRisk),
       total: counts.total,
+      notStarted: counts.notStarted,
       completed: counts.completed,
       onTrack: counts.onTrack,
       atRisk: counts.atRisk,
@@ -110,6 +115,7 @@ export function buildDashboardSummary(
     daysToDay1,
     overallHealth,
     totalItems: items.length,
+    notStarted,
     completed,
     onTrack,
     atRisk,
@@ -133,6 +139,7 @@ export function buildOwnerStats(items: ActionItem[]): OwnerStats[] {
       ownerMap.set(owner, {
         owner,
         total: 0,
+        notStarted: 0,
         completed: 0,
         onTrack: 0,
         atRisk: 0,
@@ -151,6 +158,7 @@ export function buildOwnerStats(items: ActionItem[]): OwnerStats[] {
     stats.total++;
     const status = computeStatus(item);
     switch (status) {
+      case "Not Started": stats.notStarted++; break;
       case "Completed": stats.completed++; break;
       case "On-track": stats.onTrack++; break;
       case "At-risk": stats.atRisk++; break;

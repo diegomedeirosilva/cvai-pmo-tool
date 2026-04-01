@@ -55,6 +55,7 @@ export default function TrendsClient({ snapshots: initial }: Props) {
     date: formatDate(s.snapshotDate),
     rawDate: s.snapshotDate,
     completionPct: s.totalItems > 0 ? Math.round((s.completed / s.totalItems) * 100) : 0,
+    notStarted: s.notStarted,
     completed: s.completed,
     onTrack: s.onTrack,
     atRisk: s.atRisk,
@@ -147,6 +148,7 @@ export default function TrendsClient({ snapshots: initial }: Props) {
                 <YAxis tick={{ fontSize: 11 }} stroke="#94A3B8" />
                 <Tooltip contentStyle={{ fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Area type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />
                 <Area type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
                 <Area type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
                 <Area type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />

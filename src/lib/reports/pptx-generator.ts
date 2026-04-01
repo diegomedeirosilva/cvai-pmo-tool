@@ -96,6 +96,7 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
   // KPI boxes
   const kpis = [
     { label: "Total Items", value: String(data.summary.totalItems), color: NAVY },
+    { label: "Not Started", value: String(data.summary.notStarted), color: GRAY_HEX },
     { label: "Completed", value: String(data.summary.completed), color: GREEN_HEX },
     { label: "On Track", value: String(data.summary.onTrack), color: BLUE_HEX },
     { label: "At-risk", value: String(data.summary.atRisk), color: AMBER_HEX },
@@ -124,6 +125,7 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
 
   // Status breakdown bars
   const statuses = [
+    { label: "Not Started", count: data.summary.notStarted, color: GRAY_HEX },
     { label: "Completed", count: data.summary.completed, color: GREEN_HEX },
     { label: "On Track", count: data.summary.onTrack, color: BLUE_HEX },
     { label: "At-risk", count: data.summary.atRisk, color: AMBER_HEX },

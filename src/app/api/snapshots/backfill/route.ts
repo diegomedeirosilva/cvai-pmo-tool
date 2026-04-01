@@ -13,12 +13,13 @@ export async function POST() {
       const items = upload.snapshot as unknown as ActionItem[];
       if (!items || items.length === 0) continue;
 
-      let completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
-      const wsMap = new Map<string, { total: number; completed: number; onTrack: number; atRisk: number; overdue: number }>();
+      let notStarted = 0, completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
+      const wsMap = new Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }>();
 
       for (const item of items) {
         const status = computeStatus(item);
         switch (status) {
+          case "Not Started": notStarted++; break;
           case "Completed": completed++; break;
           case "On-track": onTrack++; break;
           case "At-risk": atRisk++; break;
@@ -26,11 +27,12 @@ export async function POST() {
         }
 
         if (!wsMap.has(item.workstream)) {
-          wsMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
+          wsMap.set(item.workstream, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
         }
         const ws = wsMap.get(item.workstream)!;
         ws.total++;
         switch (status) {
+          case "Not Started": ws.notStarted++; break;
           case "Completed": ws.completed++; break;
           case "On-track": ws.onTrack++; break;
           case "At-risk": ws.atRisk++; break;
@@ -41,7 +43,7 @@ export async function POST() {
       const workstreamData = Array.from(wsMap.entries()).map(([ws, c]) => ({
         workstream: ws,
         health: computeHealth(c.total, c.completed, c.overdue, c.atRisk),
-        total: c.total, completed: c.completed, onTrack: c.onTrack,
+        total: c.total, notStarted: c.notStarted, completed: c.completed, onTrack: c.onTrack,
         atRisk: c.atRisk, overdue: c.overdue,
         completionPct: c.total > 0 ? c.completed / c.total : 0,
       }));
@@ -51,7 +53,7 @@ export async function POST() {
       await db.insert(snapshots).values({
         snapshotDate,
         totalItems: items.length,
-        completed, onTrack, atRisk, overdue,
+        notStarted, completed, onTrack, atRisk, overdue,
         overallHealth: computeHealth(items.length, completed, overdue, atRisk),
         workstreamData,
         source: "upload",

@@ -47,8 +47,9 @@ export default function DashboardClient({ summary, risks, items }: Props) {
     .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99))
     .slice(0, 5);
 
-  const { totalItems: total, completed, onTrack, atRisk, overdue } = summary;
+  const { totalItems: total, notStarted, completed, onTrack, atRisk, overdue } = summary;
   const pieData = [
+    { name: "Not Started", value: notStarted, color: "#94A3B8" },
     { name: "Completed", value: completed, color: "#22C55E" },
     { name: "On-track", value: onTrack, color: "#3B82F6" },
     { name: "At-risk", value: atRisk, color: "#F59E0B" },
@@ -128,6 +129,7 @@ export default function DashboardClient({ summary, risks, items }: Props) {
             {/* Single stat row */}
             <div className="flex items-center justify-between mt-2 gap-1">
               {[
+                { label: "Not Started", value: notStarted, color: "#94A3B8" },
                 { label: "Done", value: completed, color: "#22C55E" },
                 { label: "On-track", value: onTrack, color: "#3B82F6" },
                 { label: "At-risk", value: atRisk, color: "#F59E0B" },

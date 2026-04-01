@@ -1,4 +1,4 @@
-export type Status = "Completed" | "On-track" | "At-risk" | "Overdue";
+export type Status = "Not Started" | "Completed" | "On-track" | "At-risk" | "Overdue";
 export type RiskSeverity = "Critical" | "High" | "Medium" | "Low";
 export type RiskStatus = "Open" | "Acknowledged" | "Mitigated" | "Closed";
 export type RiskType =
@@ -81,6 +81,7 @@ export interface WorkstreamHealth {
   workstream: string;
   health: "Green" | "Amber" | "Red";
   total: number;
+  notStarted: number;
   completed: number;
   onTrack: number;
   atRisk: number;
@@ -93,6 +94,7 @@ export interface DashboardSummary {
   daysToDay1: number;
   overallHealth: "Green" | "Amber" | "Red";
   totalItems: number;
+  notStarted: number;
   completed: number;
   onTrack: number;
   atRisk: number;
@@ -106,6 +108,7 @@ export interface Snapshot {
   id: string;
   snapshotDate: string;
   totalItems: number;
+  notStarted: number;
   completed: number;
   onTrack: number;
   atRisk: number;
@@ -119,6 +122,7 @@ export interface Snapshot {
 export interface OwnerStats {
   owner: string;
   total: number;
+  notStarted: number;
   completed: number;
   onTrack: number;
   atRisk: number;

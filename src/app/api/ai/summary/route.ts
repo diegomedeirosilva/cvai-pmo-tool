@@ -38,6 +38,7 @@ export async function POST() {
       day1TargetDate: summary.project.day1TargetDate,
       daysRemaining: summary.daysToDay1,
       total: summary.totalItems,
+      notStarted: summary.notStarted,
       completed: summary.completed,
       onTrack: summary.onTrack,
       atRisk: summary.atRisk,

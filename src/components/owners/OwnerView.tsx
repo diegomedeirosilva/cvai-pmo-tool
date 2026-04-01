@@ -93,6 +93,7 @@ export default function OwnerView({ ownerStats }: Props) {
                 {/* Stats */}
                 <div className="flex items-center gap-5 text-center flex-shrink-0">
                   <Stat label="Total" value={owner.total} color="text-slate-700" />
+                  <Stat label="Not Started" value={owner.notStarted} color="text-slate-400" />
                   <Stat label="Done" value={owner.completed} color="text-green-600" />
                   <Stat label="On-track" value={owner.onTrack} color="text-blue-600" />
                   <Stat label="Due 7d" value={owner.dueSoon7} color="text-amber-600" />

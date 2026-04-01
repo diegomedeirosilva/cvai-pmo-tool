@@ -143,12 +143,13 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
   // KPI boxes
   const kpis = [
     { label: "Total Items", value: String(data.summary.totalItems), color: NAVY },
+    { label: "Not Started", value: String(data.summary.notStarted), color: GRAY },
     { label: "Completed", value: String(data.summary.completed), color: GREEN },
     { label: "On Track", value: String(data.summary.onTrack), color: BLUE },
     { label: "At-risk", value: String(data.summary.atRisk), color: AMBER },
     { label: "Overdue", value: String(data.summary.overdue), color: RED },
   ];
-  const boxW = (CW - 4 * 4) / 5;
+  const boxW = (CW - 5 * 4) / 6;
 
   kpis.forEach((kpi, i) => {
     const bx = M + i * (boxW + 4);
@@ -168,6 +169,7 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
   // Status breakdown
   y = drawSectionTitle("Status Breakdown", y);
   const statusItems = [
+    { label: "Not Started", count: data.summary.notStarted, pct: data.summary.totalItems > 0 ? data.summary.notStarted / data.summary.totalItems : 0, color: GRAY },
     { label: "Completed", count: data.summary.completed, pct: data.summary.totalItems > 0 ? data.summary.completed / data.summary.totalItems : 0, color: GREEN },
     { label: "On Track", count: data.summary.onTrack, pct: data.summary.totalItems > 0 ? data.summary.onTrack / data.summary.totalItems : 0, color: BLUE },
     { label: "At-risk", count: data.summary.atRisk, pct: data.summary.totalItems > 0 ? data.summary.atRisk / data.summary.totalItems : 0, color: AMBER },

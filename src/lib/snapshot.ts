@@ -21,6 +21,7 @@ export async function takeSnapshot(source: "manual" | "upload" | "cron") {
   const [inserted] = await db.insert(snapshots).values({
     snapshotDate: today,
     totalItems: summary.totalItems,
+    notStarted: summary.notStarted,
     completed: summary.completed,
     onTrack: summary.onTrack,
     atRisk: summary.atRisk,

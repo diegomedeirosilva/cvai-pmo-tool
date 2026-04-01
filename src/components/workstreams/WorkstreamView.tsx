@@ -16,6 +16,7 @@ interface CategorySummaryRow {
 
 interface Stats {
   total: number;
+  notStarted: number;
   completed: number;
   onTrack: number;
   atRisk: number;
@@ -153,6 +154,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
 
         {/* Stats pills */}
         <div className="flex gap-2 flex-wrap justify-end">
+          <StatPill label="Not Started" value={stats.notStarted} color="text-slate-500" bg="bg-slate-50" />
           <StatPill label="Completed" value={stats.completed} color="text-green-600" bg="bg-green-50" />
           <StatPill label="On-track" value={stats.onTrack} color="text-blue-600" bg="bg-blue-50" />
           <StatPill label="At-risk" value={stats.atRisk} color="text-amber-600" bg="bg-amber-50" />
@@ -197,7 +199,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                         requirement: "",
                         action: "",
                         owner: "",
-                        status: "On-track",
+                        status: "Not Started",
                         startDate: new Date().toISOString().split("T")[0],
                         duration: 14,
                         endDate: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],

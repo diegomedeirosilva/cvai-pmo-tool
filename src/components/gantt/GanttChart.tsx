@@ -245,6 +245,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
   function getBarColor(item: ActionItem): string {
     const status = item.actualCompletionPct >= 1.0 ? "Completed"
       : new Date(item.endDate) < today ? "Overdue"
+      : item.actualCompletionPct === 0 && new Date(item.startDate) >= today ? "Not Started"
       : item.actualCompletionPct < item.targetCompletionPct ? "At-risk"
       : "On-track";
     return STATUS_COLORS[status] || STATUS_COLORS["On-track"];

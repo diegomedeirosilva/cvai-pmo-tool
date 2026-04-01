@@ -2,8 +2,9 @@ import ExcelJS from "exceljs";
 import { ActionItem, Dependency, Project } from "@/types";
 import { computeStatus } from "@/lib/dashboard";
 
-const STATUS_VALUES = ["Completed", "On-track", "At-risk", "Overdue"];
+const STATUS_VALUES = ["Not Started", "Completed", "On-track", "At-risk", "Overdue"];
 const STATUS_COLORS: Record<string, string> = {
+  "Not Started": "FF94A3B8",
   "Completed": "FF22C55E",
   "On-track": "FF3B82F6",
   "At-risk": "FFF59E0B",

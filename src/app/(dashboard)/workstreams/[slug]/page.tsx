@@ -36,6 +36,7 @@ export default async function WorkstreamPage({ params }: Props) {
 
   const stats = {
     total: typedItems.length,
+    notStarted: typedItems.filter((i) => computeStatus(i) === "Not Started").length,
     completed: typedItems.filter((i) => computeStatus(i) === "Completed").length,
     onTrack: typedItems.filter((i) => computeStatus(i) === "On-track").length,
     atRisk: typedItems.filter((i) => computeStatus(i) === "At-risk").length,

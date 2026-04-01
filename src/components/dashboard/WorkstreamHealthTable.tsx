@@ -8,6 +8,7 @@ import { computeStatus, computeHealth } from "@/lib/dashboard";
 interface CategoryHealth {
   category: string;
   total: number;
+  notStarted: number;
   completed: number;
   onTrack: number;
   atRisk: number;
@@ -26,7 +27,7 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
   const categoryMap = useMemo(() => {
     const map = new Map<string, CategoryHealth[]>();
 
-    const wsCategories = new Map<string, Map<string, { total: number; completed: number; onTrack: number; atRisk: number; overdue: number }>>();
+    const wsCategories = new Map<string, Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }>>();
 
     for (const item of items) {
       if (!wsCategories.has(item.workstream)) {
@@ -34,12 +35,13 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
       }
       const cats = wsCategories.get(item.workstream)!;
       if (!cats.has(item.category)) {
-        cats.set(item.category, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
+        cats.set(item.category, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
       }
       const c = cats.get(item.category)!;
       c.total++;
       const status = computeStatus(item);
       switch (status) {
+        case "Not Started": c.notStarted++; break;
         case "Completed": c.completed++; break;
         case "On-track": c.onTrack++; break;
         case "At-risk": c.atRisk++; break;

@@ -20,6 +20,7 @@ export function formatPct(val: number): string {
 }
 
 export const STATUS_COLORS: Record<string, string> = {
+  "Not Started": "#94A3B8",
   "Completed": "#22C55E",
   "On-track": "#3B82F6",
   "At-risk": "#F59E0B",
@@ -27,6 +28,7 @@ export const STATUS_COLORS: Record<string, string> = {
 };
 
 export const STATUS_BG: Record<string, string> = {
+  "Not Started": "bg-slate-100 text-slate-600",
   "Completed": "bg-green-100 text-green-700",
   "On-track": "bg-blue-100 text-blue-700",
   "At-risk": "bg-amber-100 text-amber-700",

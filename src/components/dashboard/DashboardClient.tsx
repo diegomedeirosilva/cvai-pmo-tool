@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ActionItem, DashboardSummary, Risk } from "@/types";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { HEALTH_COLORS } from "@/lib/utils";
@@ -18,6 +19,7 @@ interface Props {
 const SEVERITY_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 export default function DashboardClient({ summary, risks, items }: Props) {
+  const router = useRouter();
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(false);
@@ -149,7 +151,7 @@ export default function DashboardClient({ summary, risks, items }: Props) {
 
         {/* Workstream Health Table — fills remaining space */}
         <div className="col-span-7">
-          <WorkstreamHealthTable workstreams={summary.workstreamHealth} items={items} />
+          <WorkstreamHealthTable workstreams={summary.workstreamHealth} items={allItems} />
         </div>
       </div>
 
@@ -210,10 +212,15 @@ export default function DashboardClient({ summary, risks, items }: Props) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(updated),
             });
-            if (!res.ok) throw new Error("Save failed");
+            if (!res.ok) {
+              const err = await res.text();
+              console.error("Save failed:", res.status, err);
+              throw new Error(`Save failed (${res.status})`);
+            }
             const saved = await res.json();
             setAllItems((prev) => prev.map((i) => (i.id === saved.id ? saved : i)));
             setSelectedItem(null);
+            router.refresh();
           }}
         />
       )}

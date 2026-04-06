@@ -325,13 +325,16 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
             />
           </Field>
 
-          {saveError && (
-            <p className="text-red-500 text-xs">{saveError}</p>
-          )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-slate-200 flex items-center justify-between">
+        <div className="px-5 py-4 border-t border-slate-200 space-y-2">
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-red-600 text-sm">
+              {saveError}
+            </div>
+          )}
+          <div className="flex items-center justify-between">
           <div>
             {onDelete && form.id && (
               <button
@@ -357,6 +360,7 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
             >
               {saving ? "Saving…" : "Save"}
             </button>
+          </div>
           </div>
         </div>
       </div>

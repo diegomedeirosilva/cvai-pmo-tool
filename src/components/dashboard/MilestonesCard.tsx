@@ -1,5 +1,6 @@
 import { ActionItem } from "@/types";
 import { formatDate, STATUS_COLORS } from "@/lib/utils";
+import { computeStatus } from "@/lib/dashboard";
 
 interface Props {
   milestones: ActionItem[];
@@ -47,15 +48,20 @@ export default function MilestonesCard({ milestones, onItemClick }: Props) {
                     </p>
                   </div>
                 </div>
-                <div
-                  className="inline-flex mt-1 px-1.5 py-0.5 rounded text-xs"
-                  style={{
-                    backgroundColor: STATUS_COLORS[m.status] + "20",
-                    color: STATUS_COLORS[m.status],
-                  }}
-                >
-                  {m.status}
-                </div>
+                {(() => {
+                  const status = computeStatus(m);
+                  return (
+                    <div
+                      className="inline-flex mt-1 px-1.5 py-0.5 rounded text-xs"
+                      style={{
+                        backgroundColor: STATUS_COLORS[status] + "20",
+                        color: STATUS_COLORS[status],
+                      }}
+                    >
+                      {status}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

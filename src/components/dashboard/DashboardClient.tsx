@@ -138,11 +138,11 @@ export default function DashboardClient({ summary, risks, items }: Props) {
       <AISummaryCard summary={aiSummary} loading={aiLoading} error={aiError} onRetry={loadAISummary} />
 
       {/* Row 2: countdown+health + pie metrics + workstream health table */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-12 gap-4 items-start">
 
         {/* Countdown + Health — stacked vertically */}
         <div className="col-span-2 flex flex-col gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Days to Day-1</div>
             <div className="text-4xl font-bold tabular-nums" style={{ color: countdownColor }}>
               {daysToDay1}
@@ -153,7 +153,7 @@ export default function DashboardClient({ summary, risks, items }: Props) {
               })}
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Overall Health</div>
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center mb-1"
@@ -167,7 +167,7 @@ export default function DashboardClient({ summary, risks, items }: Props) {
 
         {/* Key Metrics — donut chart */}
         <div className="col-span-3">
-          <div className="bg-white rounded-xl border border-slate-200 p-3 h-full flex flex-col">
+          <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Key Metrics</div>
             <div className="flex justify-center flex-1 min-h-0" style={{ height: 150 }}>
               <ResponsiveContainer width="80%" height="100%">

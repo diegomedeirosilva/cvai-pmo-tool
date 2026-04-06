@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ActionItem, DashboardSummary, Risk } from "@/types";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { HEALTH_COLORS } from "@/lib/utils";
+import { computeStatus, computeHealth } from "@/lib/dashboard";
 import WorkstreamHealthTable from "./WorkstreamHealthTable";
 import MilestonesCard from "./MilestonesCard";
 import AttentionCard from "./AttentionCard";
@@ -26,6 +27,9 @@ export default function DashboardClient({ summary, risks, items }: Props) {
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
   const [selectedItem, setSelectedItem] = useState<ActionItem | null>(null);
   const [allItems, setAllItems] = useState(items);
+
+  // Sync allItems when server props change (e.g. after router.refresh())
+  useEffect(() => { setAllItems(items); }, [items]);
 
   function loadAISummary() {
     setAiLoading(true);
@@ -50,7 +54,60 @@ export default function DashboardClient({ summary, risks, items }: Props) {
     .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99))
     .slice(0, 5);
 
-  const { totalItems: total, notStarted, completed, onTrack, atRisk, overdue } = summary;
+  // Recompute stats from live allItems so all cards update instantly on save
+  const liveStats = useMemo(() => {
+    let notStarted = 0, completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
+    for (const item of allItems) {
+      const status = computeStatus(item);
+      switch (status) {
+        case "Not Started": notStarted++; break;
+        case "Completed": completed++; break;
+        case "On-track": onTrack++; break;
+        case "At-risk": atRisk++; break;
+        case "Overdue": overdue++; break;
+      }
+    }
+    const total = allItems.length;
+    const health = computeHealth(total, completed, overdue, atRisk);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const in14Days = new Date(today);
+    in14Days.setDate(in14Days.getDate() + 14);
+    const milestones = allItems
+      .filter((item) => {
+        if (computeStatus(item) === "Completed") return false;
+        const end = new Date(item.endDate);
+        return end >= today && end <= in14Days;
+      })
+      .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+
+    // Recompute workstream health from live data
+    const wsMap = new Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }>();
+    for (const item of allItems) {
+      if (!wsMap.has(item.workstream)) wsMap.set(item.workstream, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
+      const ws = wsMap.get(item.workstream)!;
+      ws.total++;
+      const s = computeStatus(item);
+      switch (s) {
+        case "Not Started": ws.notStarted++; break;
+        case "Completed": ws.completed++; break;
+        case "On-track": ws.onTrack++; break;
+        case "At-risk": ws.atRisk++; break;
+        case "Overdue": ws.overdue++; break;
+      }
+    }
+    const workstreamHealth = Array.from(wsMap.entries()).map(([ws, c]) => ({
+      workstream: ws,
+      health: computeHealth(c.total, c.completed, c.overdue, c.atRisk),
+      total: c.total, notStarted: c.notStarted, completed: c.completed, onTrack: c.onTrack, atRisk: c.atRisk, overdue: c.overdue,
+      completionPct: c.total > 0 ? c.completed / c.total : 0,
+    }));
+
+    return { total, notStarted, completed, onTrack, atRisk, overdue, health, milestones, workstreamHealth };
+  }, [allItems]);
+
+  const { total, notStarted, completed, onTrack, atRisk, overdue } = liveStats;
   const pieData = [
     { name: "Not Started", value: notStarted, color: "#94A3B8" },
     { name: "Completed", value: completed, color: "#22C55E" },
@@ -59,9 +116,8 @@ export default function DashboardClient({ summary, risks, items }: Props) {
     { name: "Overdue", value: overdue, color: "#EF4444" },
   ].filter((d) => d.value > 0);
 
-  const health = summary.overallHealth;
-  const healthColor = HEALTH_COLORS[health];
-  const healthLabel = health === "Green" ? "On Track" : health === "Amber" ? "At Risk" : "Critical";
+  const healthColor = HEALTH_COLORS[liveStats.health];
+  const healthLabel = liveStats.health === "Green" ? "On Track" : liveStats.health === "Amber" ? "At Risk" : "Critical";
   const daysToDay1 = summary.daysToDay1;
   const countdownColor = daysToDay1 <= 30 ? "#EF4444" : daysToDay1 <= 60 ? "#F59E0B" : "#1E3A5F";
 
@@ -151,14 +207,14 @@ export default function DashboardClient({ summary, risks, items }: Props) {
 
         {/* Workstream Health Table — fills remaining space */}
         <div className="col-span-7">
-          <WorkstreamHealthTable workstreams={summary.workstreamHealth} items={allItems} />
+          <WorkstreamHealthTable workstreams={liveStats.workstreamHealth} items={allItems} />
         </div>
       </div>
 
       {/* Row 3: Attention Required + Upcoming Milestones — 50/50 */}
       <div className="grid grid-cols-2 gap-4">
         <AttentionCard items={allItems} onItemClick={setSelectedItem} />
-        <MilestonesCard milestones={summary.upcomingMilestones} onItemClick={setSelectedItem} />
+        <MilestonesCard milestones={liveStats.milestones} onItemClick={setSelectedItem} />
       </div>
 
       {/* Row 4: Top Risks — full width */}

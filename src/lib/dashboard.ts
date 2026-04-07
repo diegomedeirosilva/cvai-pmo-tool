@@ -9,8 +9,8 @@ import { differenceInCalendarDays } from "date-fns";
  * - At-risk: not completed, not overdue, but actual completion < target completion
  * - On-track: everything else
  */
-export function computeStatus(item: { startDate: string; endDate: string; actualCompletionPct: number; targetCompletionPct: number }): Status {
-  const today = new Date();
+export function computeStatus(item: { startDate: string; endDate: string; actualCompletionPct: number; targetCompletionPct: number }, asOfDate?: Date): Status {
+  const today = asOfDate ? new Date(asOfDate) : new Date();
   today.setHours(0, 0, 0, 0);
 
   if (item.actualCompletionPct >= 1.0) return "Completed";

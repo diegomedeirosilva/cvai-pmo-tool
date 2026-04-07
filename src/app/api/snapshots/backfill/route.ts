@@ -6,6 +6,9 @@ import { ActionItem } from "@/types";
 
 export async function POST() {
   try {
+    // Clear existing snapshots so we can recompute with current status logic
+    await db.delete(snapshots);
+
     const uploadRows = await db.select().from(uploads).orderBy(asc(uploads.uploadedAt));
     let inserted = 0;
 
@@ -13,11 +16,14 @@ export async function POST() {
       const items = upload.snapshot as unknown as ActionItem[];
       if (!items || items.length === 0) continue;
 
+      // Use the upload date as the reference for status computation
+      const asOfDate = new Date(upload.uploadedAt);
+
       let notStarted = 0, completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
       const wsMap = new Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }>();
 
       for (const item of items) {
-        const status = computeStatus(item);
+        const status = computeStatus(item, asOfDate);
         switch (status) {
           case "Not Started": notStarted++; break;
           case "Completed": completed++; break;
@@ -31,7 +37,8 @@ export async function POST() {
         }
         const ws = wsMap.get(item.workstream)!;
         ws.total++;
-        switch (status) {
+        const wsStatus = computeStatus(item, asOfDate);
+        switch (wsStatus) {
           case "Not Started": ws.notStarted++; break;
           case "Completed": ws.completed++; break;
           case "On-track": ws.onTrack++; break;

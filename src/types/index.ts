@@ -119,6 +119,33 @@ export interface Snapshot {
   createdAt: string;
 }
 
+export interface WeeklyUpdate {
+  id: string;
+  weekLabel: string;
+  weekStartDate: string;
+  status: "draft" | "finalized";
+  createdAt: string;
+  updatedAt: string;
+  sections: WeeklyUpdateSection[];
+}
+
+export interface WeeklyUpdateSection {
+  id: string;
+  weeklyUpdateId: string;
+  deliverable: string;
+  sortOrder: number;
+  progressUpdate: string;
+  nextSteps: string;
+  needsFromClient: string;
+  aiGenerated: {
+    progressUpdate?: string;
+    nextSteps?: string;
+    needsFromClient?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OwnerStats {
   owner: string;
   total: number;

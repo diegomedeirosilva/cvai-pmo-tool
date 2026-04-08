@@ -78,6 +78,30 @@ export const uploads = pgTable("uploads", {
   snapshot: jsonb("snapshot").notNull().default([]),
 });
 
+export const weeklyUpdates = pgTable("weekly_updates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  weekLabel: text("week_label").notNull(),
+  weekStartDate: date("week_start_date").notNull(),
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const weeklyUpdateSections = pgTable("weekly_update_sections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  weeklyUpdateId: uuid("weekly_update_id")
+    .notNull()
+    .references(() => weeklyUpdates.id, { onDelete: "cascade" }),
+  deliverable: text("deliverable").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  progressUpdate: text("progress_update").notNull().default(""),
+  nextSteps: text("next_steps").notNull().default(""),
+  needsFromClient: text("needs_from_client").notNull().default(""),
+  aiGenerated: jsonb("ai_generated").notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const snapshots = pgTable("snapshots", {
   id: uuid("id").primaryKey().defaultRandom(),
   snapshotDate: date("snapshot_date").notNull(),

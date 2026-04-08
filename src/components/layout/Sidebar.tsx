@@ -15,6 +15,7 @@ const navItems = [
   { href: "/owners", label: "Owner View", icon: "◉" },
   { href: "/changes", label: "Changes", icon: "≠" },
   { href: "/trends", label: "Trends", icon: "◔" },
+  { href: "/weekly-update", label: "Weekly Update", icon: "✉" },
   { href: "/reports", label: "Reports & Exports", icon: "↓" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];

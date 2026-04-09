@@ -66,18 +66,25 @@ export default function WeeklyUpdatePage() {
   async function generateWithAI() {
     if (!currentUpdate) return;
     setGenerating(true);
+    setSaveStatus("");
     try {
       const res = await fetch(`/api/weekly-updates/${currentUpdate.id}/generate`, {
         method: "POST",
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok && data.sections) {
         setCurrentUpdate((prev) =>
           prev ? { ...prev, sections: data.sections } : prev
         );
+        setSaveStatus("AI content generated");
+        setTimeout(() => setSaveStatus(""), 3000);
+      } else {
+        console.error("AI generation response:", data);
+        setSaveStatus(data.error || "AI generation failed");
       }
     } catch (e) {
       console.error("AI generation failed:", e);
+      setSaveStatus("AI generation failed — check console");
     }
     setGenerating(false);
   }
@@ -268,7 +275,9 @@ export default function WeeklyUpdatePage() {
               </button>
             )}
             {saveStatus && (
-              <span className="text-sm text-green-600 font-medium">{saveStatus}</span>
+              <span className={`text-sm font-medium ${saveStatus.includes("fail") || saveStatus.includes("error") ? "text-red-600" : "text-green-600"}`}>
+                {saveStatus}
+              </span>
             )}
           </div>
 

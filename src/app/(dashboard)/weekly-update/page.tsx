@@ -71,7 +71,15 @@ export default function WeeklyUpdatePage() {
       const res = await fetch(`/api/weekly-updates/${currentUpdate.id}/generate`, {
         method: "POST",
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        alert("AI response was not JSON: " + text.slice(0, 200));
+        setGenerating(false);
+        return;
+      }
       if (res.ok && data.sections) {
         setCurrentUpdate((prev) =>
           prev ? { ...prev, sections: data.sections } : prev
@@ -79,12 +87,13 @@ export default function WeeklyUpdatePage() {
         setSaveStatus("AI content generated");
         setTimeout(() => setSaveStatus(""), 3000);
       } else {
-        console.error("AI generation response:", data);
+        alert("AI generation failed: " + (data.error || JSON.stringify(data).slice(0, 200)));
         setSaveStatus(data.error || "AI generation failed");
       }
-    } catch (e) {
-      console.error("AI generation failed:", e);
-      setSaveStatus("AI generation failed — check console");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert("AI generation error: " + msg);
+      setSaveStatus("AI generation failed");
     }
     setGenerating(false);
   }

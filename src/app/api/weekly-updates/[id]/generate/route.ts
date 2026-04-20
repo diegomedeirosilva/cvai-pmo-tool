@@ -8,6 +8,19 @@ import { ActionItem, WeeklyUpdateSection } from "@/types";
 // Per-deliverable parallel calls — each takes ~5-10s, total fits in 60s
 export const maxDuration = 60;
 
+// Insert a blank line between bullets so wrapped lines stay tight but
+// distinct bullets get visual breathing room.
+function spaceBullets(text: string): string {
+  if (!text) return "";
+  // Normalize: collapse any existing multi-blank-lines to single blank lines
+  return text
+    .split(/\n/)
+    .map((l) => l.trimEnd())
+    .filter((l, i, arr) => l !== "" || (arr[i - 1] && arr[i - 1].startsWith("-")))
+    .join("\n")
+    .replace(/\n(?=- )/g, "\n\n");
+}
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -158,15 +171,18 @@ export async function POST(
         }
         matched++;
 
+        const progressUpdate = spaceBullets(r.result.progressUpdate);
+        const nextSteps = spaceBullets(r.result.nextSteps);
+
         const [updated] = await db
           .update(weeklyUpdateSections)
           .set({
-            progressUpdate: r.result.progressUpdate,
-            nextSteps: r.result.nextSteps,
+            progressUpdate,
+            nextSteps,
             needsFromClient: "", // Always cleared on AI run — user fills manually
             aiGenerated: {
-              progressUpdate: r.result.progressUpdate,
-              nextSteps: r.result.nextSteps,
+              progressUpdate,
+              nextSteps,
               needsFromClient: "",
             },
             updatedAt: now,

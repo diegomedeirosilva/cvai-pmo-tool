@@ -453,7 +453,7 @@ function AutoTextarea({
       disabled={disabled}
       placeholder={placeholder}
       rows={3}
-      className={`w-full text-sm leading-[1.9] resize-none rounded-lg border border-transparent px-2 py-1.5 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-200 ${
+      className={`w-full text-sm leading-relaxed resize-none rounded-lg border border-transparent px-2 py-1.5 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-200 ${
         disabled
           ? "bg-transparent text-slate-700 cursor-default"
           : "hover:border-slate-200 text-slate-700"

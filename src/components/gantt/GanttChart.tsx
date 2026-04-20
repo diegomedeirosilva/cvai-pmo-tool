@@ -11,7 +11,7 @@ interface Props {
   project: Project | null;
 }
 
-type GroupBy = "workstream" | "category" | "owner";
+type GroupBy = "category" | "owner";
 type ZoomLevel = "month" | "week";
 
 const ROW_HEIGHT = 30;
@@ -23,7 +23,7 @@ const BAR_HEIGHT = ROW_HEIGHT - BAR_PADDING * 2;
 export default function GanttChart({ items: initialItems, dependencies: initialDeps, project }: Props) {
   const [items, setItems] = useState(initialItems);
   const [deps, setDeps] = useState(initialDeps);
-  const [groupBy, setGroupBy] = useState<GroupBy>("workstream");
+  const [groupBy, setGroupBy] = useState<GroupBy>("category");
   const [zoom, setZoom] = useState<ZoomLevel>("week");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [tooltip, setTooltip] = useState<{ item: ActionItem; x: number; y: number } | null>(null);
@@ -158,8 +158,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
     const groups = new Map<string, { label: string; items: ActionItem[] }>();
     for (const item of items) {
       let key = "";
-      if (groupBy === "workstream") key = item.workstream;
-      else if (groupBy === "category") key = `${item.workstream} · ${item.category}`;
+      if (groupBy === "category") key = `${item.workstream} · ${item.category}`;
       else key = item.owner;
       if (!groups.has(key)) groups.set(key, { label: key, items: [] });
       groups.get(key)!.items.push(item);
@@ -494,7 +493,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
 
         <div className="flex items-center gap-2 ml-4">
           <span className="text-xs text-slate-500">Group:</span>
-          {(["workstream", "category", "owner"] as GroupBy[]).map((g) => (
+          {(["category", "owner"] as GroupBy[]).map((g) => (
             <button
               key={g}
               onClick={() => setGroupBy(g)}

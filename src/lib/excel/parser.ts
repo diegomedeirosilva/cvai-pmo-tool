@@ -59,17 +59,19 @@ function cleanText(val: unknown): string {
 
 // parseStatus removed — status is now computed from dates and completion %
 
-// Parse a cell reference to column I: "I5", "=I5", "$I$5", "=$I$5", "'Sheet'!I5", etc.
+// Parse a cell reference to the end-date column: "K5", "=K5", "$K$5", "'Sheet'!K5", etc.
 // ExcelJS returns formula strings WITHOUT the leading "=", so we handle both forms.
-function parseDependencyRef(formula: string | null): number | null {
+// The end-date column letter is dynamic — it shifted from I (v6/v8) to K (v10).
+function parseDependencyRef(formula: string | null, endDateColLetter: string): number | null {
   if (!formula) return null;
   const f = formula.trim();
   // Strip optional leading "="
   const noEq = f.replace(/^=/, "");
   // Strip optional sheet prefix like 'JV Readiness Plan'! or Sheet1!
   const noSheet = noEq.replace(/^(?:'[^']+'|[^'!]+)!/, "");
-  // Match $I$5, I$5, $I5, I5
-  const match = noSheet.match(/^\$?I\$?(\d+)$/i);
+  // Match $K$5, K$5, $K5, K5 (using dynamic end-date column letter)
+  const pattern = new RegExp(`^\\$?${endDateColLetter}\\$?(\\d+)$`, "i");
+  const match = noSheet.match(pattern);
   if (match) return parseInt(match[1], 10);
   return null;
 }
@@ -116,6 +118,7 @@ export async function parseExcelWorkplan(buffer: Buffer): Promise<ParsedWorkbook
     requirement: "requirement",
     action: "action",
     owner: "owner",
+    "maaden owner": "owner", // v10 renamed "Owner" to "Maaden Owner"
     status: "status",
     "start date": "startDate",
     "start": "startDate",
@@ -201,7 +204,7 @@ export async function parseExcelWorkplan(buffer: Buffer): Promise<ParsedWorkbook
     // --- Formula-based dependency detection ---
     const startCell = row.getCell(col.startDate);
     const startFormula = getCellFormula(startCell);
-    const predecessorRowNum = parseDependencyRef(startFormula);
+    const predecessorRowNum = parseDependencyRef(startFormula, endDateColLetter);
 
     const startDate = toDateString(startDateVal);
     const endDate = toDateString(endDateVal);

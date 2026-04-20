@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, weeklyUpdates, weeklyUpdateSections, actionItems } from "@/lib/db";
 import { desc, eq, asc } from "drizzle-orm";
-import { computeStatus } from "@/lib/dashboard";
+import { computeStatus, computeHealth } from "@/lib/dashboard";
 import { ActionItem } from "@/types";
 
 export async function GET() {
@@ -11,6 +11,29 @@ export async function GET() {
       .from(weeklyUpdates)
       .orderBy(desc(weeklyUpdates.weekStartDate));
 
+    // Fetch all items once and compute health per category
+    const items = await db.select().from(actionItems);
+    const typedItems = items as unknown as ActionItem[];
+    const healthByCategory = new Map<string, { health: "Green" | "Amber" | "Red"; itemCount: number }>();
+    const byCategory = new Map<string, ActionItem[]>();
+    for (const item of typedItems) {
+      if (!byCategory.has(item.category)) byCategory.set(item.category, []);
+      byCategory.get(item.category)!.push(item);
+    }
+    for (const [cat, catItems] of byCategory) {
+      let completed = 0, overdue = 0, atRisk = 0;
+      for (const item of catItems) {
+        const status = computeStatus(item);
+        if (status === "Completed") completed++;
+        else if (status === "Overdue") overdue++;
+        else if (status === "At-risk") atRisk++;
+      }
+      healthByCategory.set(cat, {
+        health: computeHealth(catItems.length, completed, overdue, atRisk),
+        itemCount: catItems.length,
+      });
+    }
+
     // Fetch sections for each update
     const result = await Promise.all(
       updates.map(async (u) => {
@@ -19,7 +42,11 @@ export async function GET() {
           .from(weeklyUpdateSections)
           .where(eq(weeklyUpdateSections.weeklyUpdateId, u.id))
           .orderBy(asc(weeklyUpdateSections.sortOrder));
-        return { ...u, sections };
+        const sectionsWithHealth = sections.map((s) => {
+          const hc = healthByCategory.get(s.deliverable);
+          return { ...s, health: hc?.health, itemCount: hc?.itemCount ?? 0 };
+        });
+        return { ...u, sections: sectionsWithHealth };
       })
     );
 

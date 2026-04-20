@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { WeeklyUpdate, WeeklyUpdateSection } from "@/types";
+import { HEALTH_COLORS } from "@/lib/utils";
 
 function getMonday(d: Date): Date {
   const day = d.getDay();
@@ -361,8 +362,12 @@ export default function WeeklyUpdatePage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                           </svg>
                           <span className="flex-1 truncate">{section.deliverable}</span>
-                          {isCollapsed && hasContent && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-300 flex-shrink-0" title="Has content" />
+                          {section.health && (
+                            <span
+                              className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-white/20"
+                              style={{ backgroundColor: HEALTH_COLORS[section.health] }}
+                              title={`Health: ${section.health}${section.itemCount ? ` (${section.itemCount} items)` : ""}`}
+                            />
                           )}
                         </button>
                       </td>

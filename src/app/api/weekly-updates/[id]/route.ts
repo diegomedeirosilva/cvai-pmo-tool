@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, weeklyUpdates, weeklyUpdateSections } from "@/lib/db";
+import { db, weeklyUpdates, weeklyUpdateSections, actionItems } from "@/lib/db";
 import { eq, asc } from "drizzle-orm";
+import { computeStatus, computeHealth } from "@/lib/dashboard";
+import { ActionItem } from "@/types";
 
 export async function GET(
   _req: NextRequest,
@@ -22,7 +24,23 @@ export async function GET(
       .where(eq(weeklyUpdateSections.weeklyUpdateId, params.id))
       .orderBy(asc(weeklyUpdateSections.sortOrder));
 
-    return NextResponse.json({ ...update, sections });
+    // Compute health per section based on its category's action items
+    const items = await db.select().from(actionItems);
+    const typedItems = items as unknown as ActionItem[];
+    const sectionsWithHealth = sections.map((s) => {
+      const catItems = typedItems.filter((i) => i.category === s.deliverable);
+      let completed = 0, overdue = 0, atRisk = 0;
+      for (const item of catItems) {
+        const status = computeStatus(item);
+        if (status === "Completed") completed++;
+        else if (status === "Overdue") overdue++;
+        else if (status === "At-risk") atRisk++;
+      }
+      const health = computeHealth(catItems.length, completed, overdue, atRisk);
+      return { ...s, health, itemCount: catItems.length };
+    });
+
+    return NextResponse.json({ ...update, sections: sectionsWithHealth });
   } catch (e) {
     console.error("Weekly update GET error:", e);
     return NextResponse.json({ error: "DB error" }, { status: 500 });

@@ -144,6 +144,8 @@ export interface WeeklyUpdateSection {
   };
   createdAt: string;
   updatedAt: string;
+  health?: "Green" | "Amber" | "Red"; // Computed at fetch time from category's action items
+  itemCount?: number;
 }
 
 export interface OwnerStats {

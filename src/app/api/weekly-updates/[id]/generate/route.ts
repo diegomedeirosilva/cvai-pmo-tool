@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, weeklyUpdates, weeklyUpdateSections, actionItems } from "@/lib/db";
 import { eq, asc, desc } from "drizzle-orm";
-import { getAIProvider, WeeklyUpdateContext } from "@/lib/ai/provider";
+import { getAIProvider, WeeklyUpdateDeliverable } from "@/lib/ai/provider";
 import { computeStatus } from "@/lib/dashboard";
 import { ActionItem, WeeklyUpdateSection } from "@/types";
 
-// AI call can take 20-40 seconds for many deliverables
+// Per-deliverable parallel calls — each takes ~5-10s, total fits in 60s
 export const maxDuration = 60;
 
 export async function POST(
@@ -21,7 +21,6 @@ export async function POST(
       );
     }
 
-    // Get the current update and its sections
     const [update] = await db
       .select()
       .from(weeklyUpdates)
@@ -37,7 +36,6 @@ export async function POST(
       .where(eq(weeklyUpdateSections.weeklyUpdateId, params.id))
       .orderBy(asc(weeklyUpdateSections.sortOrder));
 
-    // Get all action items
     const items = await db
       .select()
       .from(actionItems)
@@ -52,7 +50,7 @@ export async function POST(
       .orderBy(desc(weeklyUpdates.weekStartDate))
       .limit(1);
 
-    let prevSectionsMap = new Map<string, WeeklyUpdateSection>();
+    const prevSectionsMap = new Map<string, WeeklyUpdateSection>();
     if (prevUpdates.length > 0 && prevUpdates[0].id !== params.id) {
       const prevSections = await db
         .select()
@@ -63,15 +61,13 @@ export async function POST(
       }
     }
 
-    // Build AI context per deliverable
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const deliverables: WeeklyUpdateContext["deliverables"] = sections.map((section) => {
+    // Build a deliverable per section
+    const deliverables: WeeklyUpdateDeliverable[] = sections.map((section) => {
       const catItems = typedItems.filter((i) => i.category === section.deliverable);
-
       const prev = prevSectionsMap.get(section.deliverable);
-
       return {
         name: section.deliverable,
         items: catItems.map((i) => ({
@@ -94,27 +90,35 @@ export async function POST(
       };
     });
 
-    console.log(`[Generate] Calling AI with ${deliverables.length} deliverables`);
-    const results = await provider.generateWeeklyUpdate({ deliverables });
-    console.log(`[Generate] AI returned ${results.length} results`);
+    console.log(`[Generate] Firing ${deliverables.length} parallel AI calls`);
+    const startTime = Date.now();
 
-    if (results.length === 0) {
-      return NextResponse.json(
-        { error: "AI returned no usable content. Try again or check server logs." },
-        { status: 502 }
-      );
-    }
+    // Parallel calls — each is small/fast
+    const results = await Promise.all(
+      deliverables.map(async (d) => {
+        try {
+          const r = await provider.generateWeeklyUpdateForDeliverable(d);
+          return { ok: true as const, deliverable: d.name, result: r };
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error(`[Generate] Failed for ${d.name}:`, msg);
+          return { ok: false as const, deliverable: d.name, error: msg };
+        }
+      })
+    );
 
-    // Save AI results to sections
+    console.log(`[Generate] All AI calls done in ${Date.now() - startTime}ms`);
+
+    // Save successful results
     const now = new Date();
     let matched = 0;
+    const failures: string[] = [];
+
     const updatedSections = await Promise.all(
-      sections.map(async (section) => {
-        const aiResult = results.find(
-          (r) => (r.deliverable || "").toLowerCase().trim() === section.deliverable.toLowerCase().trim()
-        );
-        if (!aiResult) {
-          console.log(`[Generate] No AI match for section: ${section.deliverable}`);
+      sections.map(async (section, idx) => {
+        const r = results[idx];
+        if (!r.ok || !r.result.progressUpdate) {
+          if (!r.ok) failures.push(`${section.deliverable}: ${r.error}`);
           return section;
         }
         matched++;
@@ -122,13 +126,13 @@ export async function POST(
         const [updated] = await db
           .update(weeklyUpdateSections)
           .set({
-            progressUpdate: aiResult.progressUpdate || "",
-            nextSteps: aiResult.nextSteps || "",
-            needsFromClient: aiResult.needsFromClient || "",
+            progressUpdate: r.result.progressUpdate,
+            nextSteps: r.result.nextSteps,
+            needsFromClient: r.result.needsFromClient,
             aiGenerated: {
-              progressUpdate: aiResult.progressUpdate || "",
-              nextSteps: aiResult.nextSteps || "",
-              needsFromClient: aiResult.needsFromClient || "",
+              progressUpdate: r.result.progressUpdate,
+              nextSteps: r.result.nextSteps,
+              needsFromClient: r.result.needsFromClient,
             },
             updatedAt: now,
           })
@@ -139,7 +143,20 @@ export async function POST(
     );
 
     console.log(`[Generate] Matched ${matched}/${sections.length} sections`);
-    return NextResponse.json({ sections: updatedSections, matched, total: sections.length });
+
+    if (matched === 0) {
+      return NextResponse.json(
+        { error: "AI returned no usable content. Failures: " + failures.join("; ") },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({
+      sections: updatedSections,
+      matched,
+      total: sections.length,
+      ...(failures.length > 0 && { warnings: failures }),
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Weekly update generate error:", e);

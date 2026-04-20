@@ -2,8 +2,27 @@ import { DashboardSummary, WorkstreamHealth, ActionItem, Risk } from "@/types";
 
 export interface AIProvider {
   generateSummary(context: SummaryContext): Promise<string>;
-  generateWeeklyUpdate(context: WeeklyUpdateContext): Promise<WeeklyUpdateAIResult[]>;
+  generateWeeklyUpdateForDeliverable(deliverable: WeeklyUpdateDeliverable): Promise<WeeklyUpdateAIResult>;
   isAvailable(): boolean;
+}
+
+export interface WeeklyUpdateDeliverable {
+  name: string;
+  items: Array<{
+    action: string;
+    requirement: string;
+    owner: string;
+    status: string;
+    actualCompletionPct: number;
+    endDate: string;
+    notes: string;
+    recentlyChanged: boolean;
+  }>;
+  previousUpdate?: {
+    progressUpdate: string;
+    nextSteps: string;
+    needsFromClient: string;
+  };
 }
 
 export interface SummaryContext {
@@ -21,27 +40,6 @@ export interface SummaryContext {
   upcomingMilestones: ActionItem[];
 }
 
-export interface WeeklyUpdateContext {
-  deliverables: Array<{
-    name: string;
-    items: Array<{
-      action: string;
-      requirement: string;
-      owner: string;
-      status: string;
-      actualCompletionPct: number;
-      endDate: string;
-      notes: string;
-      recentlyChanged: boolean;
-    }>;
-    previousUpdate?: {
-      progressUpdate: string;
-      nextSteps: string;
-      needsFromClient: string;
-    };
-  }>;
-}
-
 export interface WeeklyUpdateAIResult {
   deliverable: string;
   progressUpdate: string;
@@ -49,35 +47,77 @@ export interface WeeklyUpdateAIResult {
   needsFromClient: string;
 }
 
-function buildWeeklyUpdatePrompt(ctx: WeeklyUpdateContext): string {
-  const sections = ctx.deliverables.map((d) => {
-    const itemLines = d.items.slice(0, 15).map((i) => {
-      const changed = i.recentlyChanged ? " [CHANGED]" : "";
-      const note = i.notes ? ` | Note: ${i.notes.slice(0, 80)}` : "";
-      return `  - [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${(i.requirement || i.action).slice(0, 100)} (${i.owner})${note}${changed}`;
-    }).join("\n");
+function buildSingleDeliverablePrompt(d: WeeklyUpdateDeliverable): string {
+  const itemLines = d.items.slice(0, 20).map((i) => {
+    const changed = i.recentlyChanged ? " [CHANGED]" : "";
+    const note = i.notes ? ` | Note: ${i.notes.slice(0, 80)}` : "";
+    return `- [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${(i.requirement || i.action).slice(0, 100)} (${i.owner})${note}${changed}`;
+  }).join("\n");
 
-    let prev = "";
-    if (d.previousUpdate) {
-      prev = `\n  Last week: ${d.previousUpdate.progressUpdate.slice(0, 150)}`;
-    }
-
-    return `Deliverable: ${d.name}\nItems:\n${itemLines}${prev}`;
-  }).join("\n---\n");
+  let prev = "";
+  if (d.previousUpdate) {
+    prev = `\nLast week's progress note: ${d.previousUpdate.progressUpdate.slice(0, 200)}`;
+  }
 
   return `You are a strategy consultant writing a weekly client status update for a JV readiness project.
 
-For each deliverable below, write 3 sections:
+Deliverable: ${d.name}
+Items:
+${itemLines}${prev}
+
+Write 3 sections for this deliverable:
 1. progressUpdate: 2-4 bullets of recent progress. Prioritize items marked [CHANGED] and completed items.
-2. nextSteps: 2-3 bullets of upcoming work, prioritize items with near deadlines.
+2. nextSteps: 2-3 bullets of upcoming work, prioritizing near deadlines.
 3. needsFromClient: 0-2 bullets of client actions/approvals needed, or "n/a".
 
 Each bullet starts with "- " (dash space). Use specific names, owners, dates. Professional, concise.
 
-${sections}
+Respond with ONLY a valid JSON object (no markdown, no preamble). Shape:
+{"progressUpdate":"- bullet one\\n- bullet two","nextSteps":"- bullet","needsFromClient":"n/a"}`;
+}
 
-Respond with ONLY a valid JSON array (no markdown, no preamble, no explanation). Example shape:
-[{"deliverable":"<name>","progressUpdate":"- bullet one\\n- bullet two","nextSteps":"- bullet","needsFromClient":"n/a"}]`;
+function parseSingleDeliverableResponse(text: string, deliverableName: string): WeeklyUpdateAIResult {
+  if (!text) return emptyResult(deliverableName);
+
+  const strategies: (() => string)[] = [
+    () => text.trim(),
+    () => text.replace(/```(?:json)?\s*/gi, "").replace(/```\s*/g, "").trim(),
+    () => {
+      const start = text.indexOf("{");
+      if (start === -1) return "";
+      let depth = 0, inString = false, escape = false;
+      for (let i = start; i < text.length; i++) {
+        const c = text[i];
+        if (escape) { escape = false; continue; }
+        if (c === "\\") { escape = true; continue; }
+        if (c === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (c === "{") depth++;
+        if (c === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
+      }
+      return "";
+    },
+  ];
+
+  for (const get of strategies) {
+    const candidate = get();
+    if (!candidate) continue;
+    try {
+      const parsed = JSON.parse(candidate);
+      return {
+        deliverable: deliverableName,
+        progressUpdate: parsed.progressUpdate || "",
+        nextSteps: parsed.nextSteps || "",
+        needsFromClient: parsed.needsFromClient || "",
+      };
+    } catch { /* try next */ }
+  }
+  console.error(`[AI] Parse failed for ${deliverableName}. Text:`, text.slice(0, 300));
+  return emptyResult(deliverableName);
+}
+
+function emptyResult(name: string): WeeklyUpdateAIResult {
+  return { deliverable: name, progressUpdate: "", nextSteps: "", needsFromClient: "" };
 }
 
 function buildPrompt(ctx: SummaryContext): string {
@@ -125,20 +165,15 @@ async function createAnthropicProvider(): Promise<AIProvider> {
       if (block.type === "text") return block.text;
       return "";
     },
-    async generateWeeklyUpdate(ctx) {
+    async generateWeeklyUpdateForDeliverable(d) {
       const message = await client.messages.create({
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: buildWeeklyUpdatePrompt(ctx) }],
+        max_tokens: 800,
+        messages: [{ role: "user", content: buildSingleDeliverablePrompt(d) }],
       });
       const block = message.content[0];
       const text = block.type === "text" ? block.text : "";
-      console.log("[AI] generateWeeklyUpdate raw response (first 300 chars):", text.slice(0, 300));
-      const parsed = parseWeeklyUpdateResponse(text);
-      if (parsed.length === 0 && text) {
-        throw new Error("AI returned non-JSON response: " + text.slice(0, 500));
-      }
-      return parsed;
+      return parseSingleDeliverableResponse(text, d.name);
     },
   };
 }
@@ -163,74 +198,17 @@ async function createOpenAIProvider(): Promise<AIProvider> {
       });
       return completion.choices[0]?.message?.content || "";
     },
-    async generateWeeklyUpdate(ctx) {
+    async generateWeeklyUpdateForDeliverable(d) {
       const completion = await client.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 4096,
+        max_tokens: 800,
         response_format: { type: "json_object" },
-        messages: [
-          { role: "user", content: buildWeeklyUpdatePrompt(ctx) + '\n\nWrap the array in {"sections": [...]}' },
-        ],
+        messages: [{ role: "user", content: buildSingleDeliverablePrompt(d) }],
       });
       const text = completion.choices[0]?.message?.content || "{}";
-      console.log("[AI] generateWeeklyUpdate raw response (first 300 chars):", text.slice(0, 300));
-      try {
-        const obj = JSON.parse(text);
-        return obj.sections || [];
-      } catch {
-        return [];
-      }
+      return parseSingleDeliverableResponse(text, d.name);
     },
   };
-}
-
-function parseWeeklyUpdateResponse(text: string): WeeklyUpdateAIResult[] {
-  if (!text) return [];
-
-  // Try strategies in order of strictness
-  const strategies: (() => string)[] = [
-    // 1. Raw text
-    () => text.trim(),
-    // 2. Strip markdown code fences
-    () => text.replace(/```(?:json)?\s*/gi, "").replace(/```\s*/g, "").trim(),
-    // 3. Extract first JSON array via bracket matching
-    () => {
-      const start = text.indexOf("[");
-      if (start === -1) return "";
-      // Find matching closing bracket
-      let depth = 0;
-      let inString = false;
-      let escape = false;
-      for (let i = start; i < text.length; i++) {
-        const c = text[i];
-        if (escape) { escape = false; continue; }
-        if (c === "\\") { escape = true; continue; }
-        if (c === '"') { inString = !inString; continue; }
-        if (inString) continue;
-        if (c === "[") depth++;
-        if (c === "]") {
-          depth--;
-          if (depth === 0) return text.slice(start, i + 1);
-        }
-      }
-      return "";
-    },
-  ];
-
-  for (const get of strategies) {
-    const candidate = get();
-    if (!candidate) continue;
-    try {
-      const parsed = JSON.parse(candidate);
-      if (Array.isArray(parsed)) return parsed;
-      if (parsed && Array.isArray(parsed.sections)) return parsed.sections;
-    } catch {
-      // try next strategy
-    }
-  }
-
-  console.error("All parse strategies failed. AI text was:", text.slice(0, 500));
-  return [];
 }
 
 // Null provider (no AI configured)
@@ -239,8 +217,8 @@ const nullProvider: AIProvider = {
   async generateSummary() {
     return "";
   },
-  async generateWeeklyUpdate() {
-    return [];
+  async generateWeeklyUpdateForDeliverable(d) {
+    return emptyResult(d.name);
   },
 };
 

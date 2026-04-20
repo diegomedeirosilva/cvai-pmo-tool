@@ -163,7 +163,7 @@ export async function POST(
           .set({
             progressUpdate: r.result.progressUpdate,
             nextSteps: r.result.nextSteps,
-            // needsFromClient is intentionally NOT touched — user fills this manually
+            needsFromClient: "", // Always cleared on AI run — user fills manually
             aiGenerated: {
               progressUpdate: r.result.progressUpdate,
               nextSteps: r.result.nextSteps,

@@ -23,6 +23,25 @@ export default function WeeklyUpdatePage() {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string>("");
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  function toggleCollapse(sectionId: string) {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
+  }
+
+  function collapseAll() {
+    if (!currentUpdate) return;
+    setCollapsedSections(new Set(currentUpdate.sections.map((s) => s.id)));
+  }
+
+  function expandAll() {
+    setCollapsedSections(new Set());
+  }
 
   // Load all updates on mount
   useEffect(() => {
@@ -283,6 +302,13 @@ export default function WeeklyUpdatePage() {
                 Reopen as Draft
               </button>
             )}
+            <div className="flex-1" />
+            <button
+              onClick={collapsedSections.size > 0 ? expandAll : collapseAll}
+              className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700"
+            >
+              {collapsedSections.size > 0 ? "Expand all" : "Collapse all"}
+            </button>
             {saveStatus && (
               <span className={`text-sm font-medium ${saveStatus.includes("fail") || saveStatus.includes("error") ? "text-red-600" : "text-green-600"}`}>
                 {saveStatus}
@@ -310,50 +336,74 @@ export default function WeeklyUpdatePage() {
                 </tr>
               </thead>
               <tbody>
-                {currentUpdate.sections.map((section, i) => (
-                  <tr
-                    key={section.id}
-                    className={`border-b border-slate-100 ${
-                      i % 2 === 0 ? "bg-white" : "bg-slate-50/50"
-                    }`}
-                  >
-                    <td className="px-4 py-3 align-top">
-                      <div
-                        className="text-sm font-semibold text-white px-3 py-2 rounded-lg"
-                        style={{ backgroundColor: "#1E3A5F" }}
-                      >
-                        {section.deliverable}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <AutoTextarea
-                        value={section.progressUpdate}
-                        onChange={(v) => updateSection(section.id, "progressUpdate", v)}
-                        disabled={isFinalized}
-                        placeholder="Click to add progress update…"
-                        onBlur={saveSections}
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <AutoTextarea
-                        value={section.nextSteps}
-                        onChange={(v) => updateSection(section.id, "nextSteps", v)}
-                        disabled={isFinalized}
-                        placeholder="Click to add next steps…"
-                        onBlur={saveSections}
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <AutoTextarea
-                        value={section.needsFromClient}
-                        onChange={(v) => updateSection(section.id, "needsFromClient", v)}
-                        disabled={isFinalized}
-                        placeholder="Click to add…"
-                        onBlur={saveSections}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {currentUpdate.sections.map((section, i) => {
+                  const isCollapsed = collapsedSections.has(section.id);
+                  const hasContent = !!(section.progressUpdate || section.nextSteps || section.needsFromClient);
+                  return (
+                    <tr
+                      key={section.id}
+                      className={`border-b border-slate-100 ${
+                        i % 2 === 0 ? "bg-white" : "bg-slate-50/50"
+                      }`}
+                    >
+                      <td className="px-4 py-3 align-top">
+                        <button
+                          type="button"
+                          onClick={() => toggleCollapse(section.id)}
+                          className="w-full flex items-center gap-2 text-sm font-semibold text-white px-3 py-2 rounded-lg hover:opacity-90 text-left"
+                          style={{ backgroundColor: "#1E3A5F" }}
+                          title={isCollapsed ? "Expand" : "Collapse"}
+                        >
+                          <svg
+                            className={`w-3 h-3 text-white/70 flex-shrink-0 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                          <span className="flex-1 truncate">{section.deliverable}</span>
+                          {isCollapsed && hasContent && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-300 flex-shrink-0" title="Has content" />
+                          )}
+                        </button>
+                      </td>
+                      {isCollapsed ? (
+                        <td colSpan={3} className="px-4 py-3 text-xs text-slate-400 italic">
+                          {hasContent ? "Click to expand" : "Empty"}
+                        </td>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 align-top">
+                            <AutoTextarea
+                              value={section.progressUpdate}
+                              onChange={(v) => updateSection(section.id, "progressUpdate", v)}
+                              disabled={isFinalized}
+                              placeholder="Click to add progress update…"
+                              onBlur={saveSections}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <AutoTextarea
+                              value={section.nextSteps}
+                              onChange={(v) => updateSection(section.id, "nextSteps", v)}
+                              disabled={isFinalized}
+                              placeholder="Click to add next steps…"
+                              onBlur={saveSections}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <AutoTextarea
+                              value={section.needsFromClient}
+                              onChange={(v) => updateSection(section.id, "needsFromClient", v)}
+                              disabled={isFinalized}
+                              placeholder="Click to add…"
+                              onBlur={saveSections}
+                            />
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {currentUpdate.sections.length === 0 && (

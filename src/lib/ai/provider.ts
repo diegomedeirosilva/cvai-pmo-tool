@@ -59,21 +59,26 @@ function buildSingleDeliverablePrompt(d: WeeklyUpdateDeliverable): string {
     prev = `\nLast week's progress note: ${d.previousUpdate.progressUpdate.slice(0, 200)}`;
   }
 
-  return `You are a strategy consultant writing a weekly client status update for a JV readiness project.
+  return `You are a McKinsey-style strategy consultant writing an executive weekly status update.
 
 Deliverable: ${d.name}
 Items:
 ${itemLines}${prev}
 
-Write 3 sections for this deliverable:
-1. progressUpdate: 2-4 bullets of recent progress. Prioritize items marked [CHANGED] and completed items.
-2. nextSteps: 2-3 bullets of upcoming work, prioritizing near deadlines.
-3. needsFromClient: 0-2 bullets of client actions/approvals needed, or "n/a".
+Write 2 sections:
+1. progressUpdate: 2-4 ultra-concise bullets of what's done/progressing. Each bullet MUST be a short fragment, not a full sentence. No filler verbs, no "Hassen completed X by date" — say "X finalized [date]" or "X 80% complete".
+2. nextSteps: 2-3 ultra-concise bullets of upcoming work. Same telegraphic style.
 
-Each bullet starts with "- " (dash space). Use specific names, owners, dates. Professional, concise.
+Style rules (critical):
+- Telegraphic, fragment-style: "Full BP model finalized 31 Mar" NOT "Hassen completed the full BP model by March 31"
+- Drop subject if obvious. Drop articles. Use noun + status + date.
+- Max ~10 words per bullet.
+- Concrete dates and percentages, no narrative.
+
+Each bullet starts with "- " (dash space).
 
 Respond with ONLY a valid JSON object (no markdown, no preamble). Shape:
-{"progressUpdate":"- bullet one\\n- bullet two","nextSteps":"- bullet","needsFromClient":"n/a"}`;
+{"progressUpdate":"- bullet one\\n- bullet two","nextSteps":"- bullet"}`;
 }
 
 function parseSingleDeliverableResponse(text: string, deliverableName: string): WeeklyUpdateAIResult {
@@ -108,7 +113,7 @@ function parseSingleDeliverableResponse(text: string, deliverableName: string): 
         deliverable: deliverableName,
         progressUpdate: parsed.progressUpdate || "",
         nextSteps: parsed.nextSteps || "",
-        needsFromClient: parsed.needsFromClient || "",
+        needsFromClient: "", // Always blank — user fills this manually
       };
     } catch { /* try next */ }
   }

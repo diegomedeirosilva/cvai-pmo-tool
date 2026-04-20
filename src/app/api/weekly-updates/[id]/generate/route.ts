@@ -5,6 +5,9 @@ import { getAIProvider, WeeklyUpdateContext } from "@/lib/ai/provider";
 import { computeStatus } from "@/lib/dashboard";
 import { ActionItem, WeeklyUpdateSection } from "@/types";
 
+// AI call can take 20-40 seconds for many deliverables
+export const maxDuration = 60;
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -91,27 +94,41 @@ export async function POST(
       };
     });
 
+    console.log(`[Generate] Calling AI with ${deliverables.length} deliverables`);
     const results = await provider.generateWeeklyUpdate({ deliverables });
+    console.log(`[Generate] AI returned ${results.length} results`);
+
+    if (results.length === 0) {
+      return NextResponse.json(
+        { error: "AI returned no usable content. Try again or check server logs." },
+        { status: 502 }
+      );
+    }
 
     // Save AI results to sections
     const now = new Date();
+    let matched = 0;
     const updatedSections = await Promise.all(
       sections.map(async (section) => {
         const aiResult = results.find(
-          (r) => r.deliverable.toLowerCase() === section.deliverable.toLowerCase()
+          (r) => (r.deliverable || "").toLowerCase().trim() === section.deliverable.toLowerCase().trim()
         );
-        if (!aiResult) return section;
+        if (!aiResult) {
+          console.log(`[Generate] No AI match for section: ${section.deliverable}`);
+          return section;
+        }
+        matched++;
 
         const [updated] = await db
           .update(weeklyUpdateSections)
           .set({
-            progressUpdate: aiResult.progressUpdate,
-            nextSteps: aiResult.nextSteps,
-            needsFromClient: aiResult.needsFromClient,
+            progressUpdate: aiResult.progressUpdate || "",
+            nextSteps: aiResult.nextSteps || "",
+            needsFromClient: aiResult.needsFromClient || "",
             aiGenerated: {
-              progressUpdate: aiResult.progressUpdate,
-              nextSteps: aiResult.nextSteps,
-              needsFromClient: aiResult.needsFromClient,
+              progressUpdate: aiResult.progressUpdate || "",
+              nextSteps: aiResult.nextSteps || "",
+              needsFromClient: aiResult.needsFromClient || "",
             },
             updatedAt: now,
           })
@@ -121,9 +138,11 @@ export async function POST(
       })
     );
 
-    return NextResponse.json({ sections: updatedSections });
-  } catch (e) {
+    console.log(`[Generate] Matched ${matched}/${sections.length} sections`);
+    return NextResponse.json({ sections: updatedSections, matched, total: sections.length });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error("Weekly update generate error:", e);
-    return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

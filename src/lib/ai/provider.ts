@@ -51,32 +51,33 @@ export interface WeeklyUpdateAIResult {
 
 function buildWeeklyUpdatePrompt(ctx: WeeklyUpdateContext): string {
   const sections = ctx.deliverables.map((d) => {
-    const itemLines = d.items.map((i) => {
-      const changed = i.recentlyChanged ? " [CHANGED THIS WEEK]" : "";
-      const note = i.notes ? ` | Note: ${i.notes.slice(0, 100)}` : "";
-      return `  - [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${i.requirement || i.action} (${i.owner})${note}${changed}`;
+    const itemLines = d.items.slice(0, 15).map((i) => {
+      const changed = i.recentlyChanged ? " [CHANGED]" : "";
+      const note = i.notes ? ` | Note: ${i.notes.slice(0, 80)}` : "";
+      return `  - [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${(i.requirement || i.action).slice(0, 100)} (${i.owner})${note}${changed}`;
     }).join("\n");
 
     let prev = "";
     if (d.previousUpdate) {
-      prev = `\n  Last week's update:\n  Progress: ${d.previousUpdate.progressUpdate.slice(0, 200)}\n  Next steps: ${d.previousUpdate.nextSteps.slice(0, 200)}`;
+      prev = `\n  Last week: ${d.previousUpdate.progressUpdate.slice(0, 150)}`;
     }
 
     return `Deliverable: ${d.name}\nItems:\n${itemLines}${prev}`;
   }).join("\n---\n");
 
-  return `You are a strategy consultant writing a weekly client status update.
+  return `You are a strategy consultant writing a weekly client status update for a JV readiness project.
 
-For each deliverable, write 3 sections:
-1. Progress Update: 2-4 bullet points of what happened/progressed this week. Focus on items marked [CHANGED THIS WEEK] and completed items. Use specific names and owners.
-2. Next Steps: 2-3 bullet points of upcoming work, prioritizing items with near deadlines.
-3. What We Need From You: 0-2 bullet points of client actions/approvals needed. Write "n/a" if nothing needed.
+For each deliverable below, write 3 sections:
+1. progressUpdate: 2-4 bullets of recent progress. Prioritize items marked [CHANGED] and completed items.
+2. nextSteps: 2-3 bullets of upcoming work, prioritize items with near deadlines.
+3. needsFromClient: 0-2 bullets of client actions/approvals needed, or "n/a".
 
-Each bullet must start with "• ". Be specific, professional, concise. No generic filler.
+Each bullet starts with "- " (dash space). Use specific names, owners, dates. Professional, concise.
 
 ${sections}
 
-Return a JSON array (no markdown fencing): [{"deliverable":"...","progressUpdate":"• ...","nextSteps":"• ...","needsFromClient":"• ..."}]`;
+Respond with ONLY a valid JSON array (no markdown, no preamble, no explanation). Example shape:
+[{"deliverable":"<name>","progressUpdate":"- bullet one\\n- bullet two","nextSteps":"- bullet","needsFromClient":"n/a"}]`;
 }
 
 function buildPrompt(ctx: SummaryContext): string {
@@ -127,12 +128,17 @@ async function createAnthropicProvider(): Promise<AIProvider> {
     async generateWeeklyUpdate(ctx) {
       const message = await client.messages.create({
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-        max_tokens: 2000,
+        max_tokens: 4096,
         messages: [{ role: "user", content: buildWeeklyUpdatePrompt(ctx) }],
       });
       const block = message.content[0];
-      if (block.type === "text") return parseWeeklyUpdateResponse(block.text);
-      return [];
+      const text = block.type === "text" ? block.text : "";
+      console.log("[AI] generateWeeklyUpdate raw response (first 300 chars):", text.slice(0, 300));
+      const parsed = parseWeeklyUpdateResponse(text);
+      if (parsed.length === 0 && text) {
+        throw new Error("AI returned non-JSON response: " + text.slice(0, 500));
+      }
+      return parsed;
     },
   };
 }
@@ -160,23 +166,71 @@ async function createOpenAIProvider(): Promise<AIProvider> {
     async generateWeeklyUpdate(ctx) {
       const completion = await client.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: buildWeeklyUpdatePrompt(ctx) }],
+        max_tokens: 4096,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "user", content: buildWeeklyUpdatePrompt(ctx) + '\n\nWrap the array in {"sections": [...]}' },
+        ],
       });
-      return parseWeeklyUpdateResponse(completion.choices[0]?.message?.content || "[]");
+      const text = completion.choices[0]?.message?.content || "{}";
+      console.log("[AI] generateWeeklyUpdate raw response (first 300 chars):", text.slice(0, 300));
+      try {
+        const obj = JSON.parse(text);
+        return obj.sections || [];
+      } catch {
+        return [];
+      }
     },
   };
 }
 
 function parseWeeklyUpdateResponse(text: string): WeeklyUpdateAIResult[] {
-  try {
-    // Strip markdown code fences if present
-    const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    return JSON.parse(cleaned);
-  } catch {
-    console.error("Failed to parse weekly update AI response:", text.slice(0, 200));
-    return [];
+  if (!text) return [];
+
+  // Try strategies in order of strictness
+  const strategies: (() => string)[] = [
+    // 1. Raw text
+    () => text.trim(),
+    // 2. Strip markdown code fences
+    () => text.replace(/```(?:json)?\s*/gi, "").replace(/```\s*/g, "").trim(),
+    // 3. Extract first JSON array via bracket matching
+    () => {
+      const start = text.indexOf("[");
+      if (start === -1) return "";
+      // Find matching closing bracket
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let i = start; i < text.length; i++) {
+        const c = text[i];
+        if (escape) { escape = false; continue; }
+        if (c === "\\") { escape = true; continue; }
+        if (c === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (c === "[") depth++;
+        if (c === "]") {
+          depth--;
+          if (depth === 0) return text.slice(start, i + 1);
+        }
+      }
+      return "";
+    },
+  ];
+
+  for (const get of strategies) {
+    const candidate = get();
+    if (!candidate) continue;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && Array.isArray(parsed.sections)) return parsed.sections;
+    } catch {
+      // try next strategy
+    }
   }
+
+  console.error("All parse strategies failed. AI text was:", text.slice(0, 500));
+  return [];
 }
 
 // Null provider (no AI configured)

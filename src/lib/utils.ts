@@ -47,3 +47,9 @@ export const HEALTH_COLORS: Record<string, string> = {
   Amber: "#F59E0B",
   Red: "#EF4444",
 };
+
+export const HEALTH_LABELS: Record<string, string> = {
+  Green: "On Track",
+  Amber: "At Risk",
+  Red: "Critical",
+};

@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   AreaChart, Area, CartesianGrid, XAxis, YAxis, Legend,
 } from "recharts";
-import { HEALTH_COLORS, formatDate } from "@/lib/utils";
+import { HEALTH_COLORS, HEALTH_LABELS, formatDate } from "@/lib/utils";
 import { computeStatus, computeHealth } from "@/lib/dashboard";
 import WorkstreamHealthTable from "./WorkstreamHealthTable";
 import MilestonesCard from "./MilestonesCard";
@@ -128,7 +128,7 @@ export default function DashboardClient({ summary, items }: Props) {
   ].filter((d) => d.value > 0);
 
   const healthColor = HEALTH_COLORS[liveStats.health];
-  const healthLabel = liveStats.health === "Green" ? "On Track" : liveStats.health === "Amber" ? "At Risk" : "Critical";
+  const healthLabel = HEALTH_LABELS[liveStats.health];
   const daysToDay1 = summary.daysToDay1;
   const countdownColor = daysToDay1 <= 30 ? "#EF4444" : daysToDay1 <= 60 ? "#F59E0B" : "#1E3A5F";
 

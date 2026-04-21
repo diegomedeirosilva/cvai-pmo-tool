@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { WorkstreamHealth, ActionItem } from "@/types";
-import { HEALTH_COLORS } from "@/lib/utils";
+import { HEALTH_COLORS, HEALTH_LABELS } from "@/lib/utils";
 import { computeStatus, computeHealth } from "@/lib/dashboard";
 
 interface CategoryHealth {
@@ -119,7 +119,7 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                       style={{ backgroundColor: color + "20", color }}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-                      {ws.health}
+                      {HEALTH_LABELS[ws.health] || ws.health}
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
@@ -153,7 +153,7 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                           style={{ backgroundColor: catColor + "20", color: catColor }}
                         >
                           <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: catColor }} />
-                          {cat.health}
+                          {HEALTH_LABELS[cat.health] || cat.health}
                         </span>
                       </td>
                       <td className="px-3 py-2">

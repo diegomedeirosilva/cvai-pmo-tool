@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { ActionItem, Dependency } from "@/types";
-import { STATUS_COLORS, formatDate, HEALTH_COLORS } from "@/lib/utils";
+import { STATUS_COLORS, formatDate, HEALTH_COLORS, HEALTH_LABELS } from "@/lib/utils";
 import { computeHealth, computeStatus } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
@@ -134,7 +134,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
               style={{ backgroundColor: healthColor + "20", color: healthColor }}
             >
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: healthColor }} />
-              {health}
+              {HEALTH_LABELS[health] || health}
             </span>
             <span className="text-sm text-slate-500">
               {stats.completed}/{stats.total} completed · {stats.overdue} overdue

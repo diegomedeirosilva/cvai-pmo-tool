@@ -39,7 +39,24 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
     categorySummariesCount: number;
   } | null>(null);
   const [uploadError, setUploadError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const router = useRouter();
+
+  async function deleteUpload(id: string, fileName: string) {
+    if (!confirm(`Delete "${fileName}"?\n\nThis removes the upload record and its snapshot from the Trends chart. The current action items in the dashboard are NOT affected.`)) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/uploads/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert("Delete failed");
+      } else {
+        router.refresh();
+      }
+    } catch (e) {
+      alert("Delete failed: " + (e instanceof Error ? e.message : String(e)));
+    }
+    setDeletingId(null);
+  }
 
   async function saveProject() {
     setSaving(true);
@@ -171,20 +188,34 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
                 <th className="text-left pb-2 text-xs text-slate-500 font-medium">Date</th>
                 <th className="text-left pb-2 text-xs text-slate-500 font-medium">File</th>
                 <th className="text-right pb-2 text-xs text-slate-500 font-medium">Items</th>
+                <th className="w-8"></th>
               </tr>
             </thead>
             <tbody>
               {uploadHistory.map((u) => (
-                <tr key={u.id} className="border-t border-slate-100">
+                <tr key={u.id} className="border-t border-slate-100 group">
                   <td className="py-2 text-slate-600">
                     {new Date(u.uploadedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </td>
                   <td className="py-2 text-slate-500 text-xs">{u.fileName}</td>
                   <td className="py-2 text-right text-slate-600">{u.itemCount}</td>
+                  <td className="py-2 text-right">
+                    <button
+                      onClick={() => deleteUpload(u.id, u.fileName)}
+                      disabled={deletingId === u.id}
+                      className="text-slate-300 hover:text-red-500 transition-colors disabled:opacity-40 text-sm"
+                      title="Delete this upload and its snapshot"
+                    >
+                      {deletingId === u.id ? "…" : "×"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="text-xs text-slate-400 mt-3">
+            Deleting an upload removes its entry from the Trends chart. Current dashboard data is not affected.
+          </p>
         </section>
       )}
     </div>

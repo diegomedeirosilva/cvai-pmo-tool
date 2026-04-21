@@ -238,7 +238,11 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                     const pred = predId ? itemMap.get(predId) : null;
 
                     return (
-                      <tr key={item.id} className="border-t border-slate-100 hover:bg-slate-50">
+                      <tr
+                        key={item.id}
+                        className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
+                        onClick={() => setEditItem(item)}
+                      >
                         <td className="px-4 py-2.5 max-w-xs">
                           <p className="font-medium text-slate-700 truncate">
                             {item.requirement || "—"}
@@ -271,12 +275,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                           <p className="line-clamp-2">{item.notes}</p>
                         </td>
                         <td className="px-2 py-2.5">
-                          <button
-                            onClick={() => setEditItem(item)}
-                            className="text-slate-300 hover:text-blue-500 transition-colors"
-                          >
-                            ✎
-                          </button>
+                          <span className="text-slate-300">✎</span>
                         </td>
                       </tr>
                     );

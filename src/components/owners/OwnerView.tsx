@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
-import { OwnerStats } from "@/types";
+import { useRouter } from "next/navigation";
+import { ActionItem, OwnerStats } from "@/types";
 import { STATUS_COLORS, formatDate } from "@/lib/utils";
 import { computeStatus } from "@/lib/dashboard";
+import ActionItemModal from "@/components/shared/ActionItemModal";
 
 interface Props {
   ownerStats: OwnerStats[];
@@ -11,8 +13,10 @@ interface Props {
 type SortKey = "total" | "overdue" | "dueSoon7" | "dueSoon14";
 
 export default function OwnerView({ ownerStats }: Props) {
+  const router = useRouter();
   const [expandedOwner, setExpandedOwner] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("total");
+  const [selectedItem, setSelectedItem] = useState<ActionItem | null>(null);
 
   const sorted = [...ownerStats].sort((a, b) => b[sortBy] - a[sortBy]);
 
@@ -122,7 +126,11 @@ export default function OwnerView({ ownerStats }: Props) {
                         .map((item) => {
                           const status = computeStatus(item);
                           return (
-                            <tr key={item.id} className="border-t border-slate-100 hover:bg-slate-50">
+                            <tr
+                              key={item.id}
+                              className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
+                              onClick={() => setSelectedItem(item)}
+                            >
                               <td className="px-4 py-2 text-slate-700 max-w-xs">
                                 <p className="truncate">{item.requirement || item.action.slice(0, 60)}</p>
                                 {item.notes && (
@@ -156,6 +164,23 @@ export default function OwnerView({ ownerStats }: Props) {
           );
         })}
       </div>
+
+      {selectedItem && (
+        <ActionItemModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onSave={async (updated) => {
+            const res = await fetch(`/api/actions/${updated.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updated),
+            });
+            if (!res.ok) throw new Error(`Save failed (${res.status})`);
+            setSelectedItem(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,58 +1,39 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ActionItem, DashboardSummary, Risk } from "@/types";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { HEALTH_COLORS } from "@/lib/utils";
+import { ActionItem, DashboardSummary, Snapshot } from "@/types";
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  AreaChart, Area, CartesianGrid, XAxis, YAxis, Legend,
+} from "recharts";
+import { HEALTH_COLORS, formatDate } from "@/lib/utils";
 import { computeStatus, computeHealth } from "@/lib/dashboard";
 import WorkstreamHealthTable from "./WorkstreamHealthTable";
 import MilestonesCard from "./MilestonesCard";
 import AttentionCard from "./AttentionCard";
-import AISummaryCard from "./AISummaryCard";
 import ActionItemModal from "../shared/ActionItemModal";
 
 interface Props {
   summary: Omit<DashboardSummary, "aiSummary">;
-  risks: Risk[];
   items: ActionItem[];
 }
 
-const SEVERITY_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
-
-export default function DashboardClient({ summary, risks, items }: Props) {
+export default function DashboardClient({ summary, items }: Props) {
   const router = useRouter();
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState(false);
-  const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
   const [selectedItem, setSelectedItem] = useState<ActionItem | null>(null);
   const [allItems, setAllItems] = useState(items);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
 
   // Sync allItems when server props change (e.g. after router.refresh())
   useEffect(() => { setAllItems(items); }, [items]);
 
-  function loadAISummary() {
-    setAiLoading(true);
-    setAiError(false);
-    fetch("/api/ai/summary", { method: "POST" })
+  // Fetch snapshots for the Status Distribution chart
+  useEffect(() => {
+    fetch("/api/snapshots")
       .then((r) => r.json())
-      .then((data) => {
-        setAiSummary(data.summary || null);
-        setAiLoading(false);
-        if (!data.summary) setAiError(true);
-      })
-      .catch(() => {
-        setAiLoading(false);
-        setAiError(true);
-      });
-  }
-
-  useEffect(() => { loadAISummary(); }, []);
-
-  const topRisks = risks
-    .filter((r) => r.riskStatus === "Open")
-    .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99))
-    .slice(0, 5);
+      .then((data: Snapshot[]) => setSnapshots(Array.isArray(data) ? data : []))
+      .catch(() => setSnapshots([]));
+  }, []);
 
   // Recompute stats from live allItems so all cards update instantly on save
   const liveStats = useMemo(() => {
@@ -82,7 +63,6 @@ export default function DashboardClient({ summary, risks, items }: Props) {
       })
       .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
-    // Recompute workstream health from live data
     const wsMap = new Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }>();
     for (const item of allItems) {
       if (!wsMap.has(item.workstream)) wsMap.set(item.workstream, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
@@ -106,6 +86,37 @@ export default function DashboardClient({ summary, risks, items }: Props) {
 
     return { total, notStarted, completed, onTrack, atRisk, overdue, health, milestones, workstreamHealth };
   }, [allItems]);
+
+  // Status distribution chart data (oldest first)
+  const { chartData, currentPct, delta14d } = useMemo(() => {
+    const sorted = [...snapshots].sort(
+      (a, b) => new Date(a.snapshotDate).getTime() - new Date(b.snapshotDate).getTime()
+    );
+    const chartData = sorted.map((s) => ({
+      date: formatDate(s.snapshotDate),
+      rawDate: s.snapshotDate,
+      completionPct: s.totalItems > 0 ? Math.round((s.completed / s.totalItems) * 100) : 0,
+      notStarted: s.notStarted,
+      completed: s.completed,
+      onTrack: s.onTrack,
+      atRisk: s.atRisk,
+      overdue: s.overdue,
+    }));
+
+    const currentPct = chartData.length > 0 ? chartData[chartData.length - 1].completionPct : 0;
+    // Find snapshot from ~14 days before the latest; fall back to earliest
+    let delta14d: number | null = null;
+    if (chartData.length >= 2) {
+      const latestDate = new Date(chartData[chartData.length - 1].rawDate).getTime();
+      const targetMs = latestDate - 14 * 86400 * 1000;
+      let ref = chartData[0];
+      for (const s of chartData) {
+        if (new Date(s.rawDate).getTime() <= targetMs) ref = s;
+      }
+      delta14d = currentPct - ref.completionPct;
+    }
+    return { chartData, currentPct, delta14d };
+  }, [snapshots]);
 
   const { total, notStarted, completed, onTrack, atRisk, overdue } = liveStats;
   const pieData = [
@@ -134,13 +145,9 @@ export default function DashboardClient({ summary, risks, items }: Props) {
         </div>
       </div>
 
-      {/* Row 1: AI Executive Briefing — full width */}
-      <AISummaryCard summary={aiSummary} loading={aiLoading} error={aiError} onRetry={loadAISummary} />
-
-      {/* Row 2: countdown+health + pie metrics + workstream health table */}
+      {/* Row 1: countdown+health + pie metrics + workstream health table */}
       <div className="grid grid-cols-12 gap-4">
-
-        {/* Countdown + Health — stacked vertically */}
+        {/* Countdown + Health */}
         <div className="col-span-2 flex flex-col gap-4">
           <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Days to Day-1</div>
@@ -165,7 +172,7 @@ export default function DashboardClient({ summary, risks, items }: Props) {
           </div>
         </div>
 
-        {/* Key Metrics — donut chart */}
+        {/* Key Metrics — donut */}
         <div className="col-span-3">
           <div className="bg-white rounded-xl border border-slate-200 p-3 h-full flex flex-col">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Key Metrics</div>
@@ -205,54 +212,62 @@ export default function DashboardClient({ summary, risks, items }: Props) {
           </div>
         </div>
 
-        {/* Workstream Health Table — fills remaining space */}
+        {/* Workstream Health Table */}
         <div className="col-span-7">
           <WorkstreamHealthTable workstreams={liveStats.workstreamHealth} items={allItems} />
         </div>
       </div>
 
-      {/* Row 3: Attention Required + Upcoming Milestones — 50/50 */}
+      {/* Row 2: Attention + Upcoming Milestones */}
       <div className="grid grid-cols-2 gap-4">
         <AttentionCard items={allItems} onItemClick={setSelectedItem} />
         <MilestonesCard milestones={liveStats.milestones} onItemClick={setSelectedItem} />
       </div>
 
-      {/* Row 4: Top Risks — full width */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-xs text-slate-500 uppercase tracking-wider">Top Risks</div>
-          <a href="/risks" className="text-xs text-blue-500 hover:underline">View all →</a>
-        </div>
-        {topRisks.length === 0 ? (
-          <p className="text-xs text-slate-400 mt-2">No open risks detected.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {topRisks.map((risk, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedRisk(risk)}
-                className="w-full flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 text-left transition-colors"
-              >
-                <span className={`flex-shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-xs font-medium ${
-                  risk.severity === "Critical" ? "bg-red-600 text-white" :
-                  risk.severity === "High" ? "bg-red-100 text-red-700" :
-                  risk.severity === "Medium" ? "bg-amber-100 text-amber-700" :
-                  "bg-slate-100 text-slate-600"
-                }`}>
-                  {risk.severity.slice(0, 4)}
+      {/* Row 3: Status Distribution Over Time */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="flex items-start justify-between mb-4">
+          <h2 className="text-sm font-medium text-slate-700">Status Distribution Over Time</h2>
+          {chartData.length > 0 && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold tabular-nums text-slate-800">
+                {currentPct}%
+              </span>
+              <span className="text-xs text-slate-400">complete</span>
+              {delta14d !== null && (
+                <span
+                  className="ml-2 text-xs font-medium px-2 py-0.5 rounded"
+                  style={{
+                    backgroundColor: delta14d > 0 ? "#22C55E20" : delta14d < 0 ? "#EF444420" : "#94A3B820",
+                    color: delta14d > 0 ? "#15803D" : delta14d < 0 ? "#B91C1C" : "#64748B",
+                  }}
+                  title="Change vs ~14 days ago"
+                >
+                  {delta14d > 0 ? "▲" : delta14d < 0 ? "▼" : "–"} {delta14d > 0 ? "+" : ""}{delta14d}pp in 14 days
                 </span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs text-slate-700 leading-snug line-clamp-2">
-                    {risk.description}
-                  </div>
-                  {risk.workstream && (
-                    <div className="text-xs text-slate-400 mt-0.5">{risk.workstream} · {risk.type}</div>
-                  )}
-                </div>
-                <span className="text-slate-300 text-xs flex-shrink-0">›</span>
-              </button>
-            ))}
-          </div>
+              )}
+            </div>
+          )}
+        </div>
+        {chartData.length < 2 ? (
+          <p className="text-xs text-slate-400 py-8 text-center">
+            Trend needs at least 2 snapshots. Visit the Trends page to take a snapshot.
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height={250}>
+            <AreaChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#94A3B8" />
+              <YAxis tick={{ fontSize: 11 }} stroke="#94A3B8" />
+              <Tooltip contentStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Area type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />
+              <Area type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
+              <Area type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
+              <Area type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
+              <Area type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />
+            </AreaChart>
+          </ResponsiveContainer>
         )}
       </div>
 
@@ -280,77 +295,6 @@ export default function DashboardClient({ summary, risks, items }: Props) {
           }}
         />
       )}
-
-      {/* Risk detail popup */}
-      {selectedRisk && (
-        <RiskModal risk={selectedRisk} onClose={() => setSelectedRisk(null)} />
-      )}
-    </div>
-  );
-}
-
-function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
-  const severityStyle =
-    risk.severity === "Critical" ? "bg-red-600 text-white" :
-    risk.severity === "High" ? "bg-red-100 text-red-700" :
-    risk.severity === "Medium" ? "bg-amber-100 text-amber-700" :
-    "bg-slate-100 text-slate-600";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${severityStyle}`}>
-              {risk.severity}
-            </span>
-            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{risk.type}</span>
-            {risk.workstream && (
-              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{risk.workstream}</span>
-            )}
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
-        </div>
-
-        <div>
-          <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Description</div>
-          <p className="text-sm text-slate-700 leading-relaxed">{risk.description}</p>
-        </div>
-
-        {risk.suggestedMitigation && (
-          <div>
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Suggested Mitigation</div>
-            <p className="text-sm text-slate-600 leading-relaxed bg-green-50 border border-green-100 rounded-lg p-3">
-              {risk.suggestedMitigation}
-            </p>
-          </div>
-        )}
-
-        {risk.owners && risk.owners.length > 0 && (
-          <div>
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Owner(s)</div>
-            <div className="flex flex-wrap gap-1.5">
-              {risk.owners.map((o, i) => (
-                <span key={i} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">{o}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-            risk.riskStatus === "Open" ? "bg-red-50 text-red-600" :
-            risk.riskStatus === "Mitigated" ? "bg-green-50 text-green-600" :
-            "bg-slate-100 text-slate-500"
-          }`}>
-            {risk.riskStatus}
-          </span>
-          <a href="/risks" className="text-xs text-blue-500 hover:underline">Manage in Risk Register →</a>
-        </div>
-      </div>
     </div>
   );
 }

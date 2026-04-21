@@ -9,13 +9,11 @@ interface SidebarProps {
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "⊞" },
+  { href: "/weekly-update", label: "Weekly Update", icon: "✉" },
   { href: "/gantt", label: "Gantt Chart", icon: "▤" },
   { href: "/critical-path", label: "Critical Path", icon: "⬡" },
-  { href: "/risks", label: "Risk Register", icon: "⚠" },
   { href: "/owners", label: "Owner View", icon: "◉" },
-  { href: "/changes", label: "Changes", icon: "≠" },
-  { href: "/trends", label: "Trends", icon: "◔" },
-  { href: "/weekly-update", label: "Weekly Update", icon: "✉" },
+  { href: "/risks", label: "Risk Register", icon: "⚠" },
   { href: "/reports", label: "Reports & Exports", icon: "↓" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];

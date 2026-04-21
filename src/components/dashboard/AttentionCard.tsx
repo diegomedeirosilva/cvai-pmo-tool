@@ -12,37 +12,26 @@ export default function AttentionCard({ items, onItemClick }: Props) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Filter to overdue and at-risk items, overdue first
+  // Filter to overdue items, soonest overdue first
   const attentionItems = items
-    .filter((i) => {
-      const status = computeStatus(i);
-      return status === "Overdue" || status === "At-risk";
-    })
-    .sort((a, b) => {
-      const sa = computeStatus(a);
-      const sb = computeStatus(b);
-      if (sa === "Overdue" && sb !== "Overdue") return -1;
-      if (sa !== "Overdue" && sb === "Overdue") return 1;
-      return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
-    });
+    .filter((i) => computeStatus(i) === "Overdue")
+    .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 h-full">
       <div className="px-4 py-3 border-b border-slate-100">
         <h3 className="font-medium text-slate-700 text-sm">
-          Attention Required
+          Overdue
           <span className="ml-1.5 text-slate-400 font-normal">({attentionItems.length})</span>
         </h3>
       </div>
       {attentionItems.length === 0 ? (
-        <div className="px-4 py-6 text-center text-slate-400 text-sm">No overdue or at-risk items</div>
+        <div className="px-4 py-6 text-center text-slate-400 text-sm">No overdue items</div>
       ) : (
         <div className="divide-y divide-slate-100 overflow-y-auto" style={{ maxHeight: 360 }}>
           {attentionItems.map((item) => {
-            const status = computeStatus(item);
             const end = new Date(item.endDate);
-            const daysLeft = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            const isOverdue = status === "Overdue";
+            const daysOverdue = Math.ceil((today.getTime() - end.getTime()) / (1000 * 60 * 60 * 24));
 
             return (
               <div
@@ -59,11 +48,8 @@ export default function AttentionCard({ items, onItemClick }: Props) {
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <p className="text-xs text-slate-500">{formatDate(item.endDate)}</p>
-                    <p
-                      className="text-xs font-medium mt-0.5"
-                      style={{ color: isOverdue ? "#EF4444" : "#F59E0B" }}
-                    >
-                      {isOverdue ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`}
+                    <p className="text-xs font-medium mt-0.5" style={{ color: "#EF4444" }}>
+                      {daysOverdue}d overdue
                     </p>
                   </div>
                 </div>
@@ -71,11 +57,11 @@ export default function AttentionCard({ items, onItemClick }: Props) {
                   <span
                     className="inline-flex px-1.5 py-0.5 rounded text-xs"
                     style={{
-                      backgroundColor: STATUS_COLORS[status] + "20",
-                      color: STATUS_COLORS[status],
+                      backgroundColor: STATUS_COLORS["Overdue"] + "20",
+                      color: STATUS_COLORS["Overdue"],
                     }}
                   >
-                    {status}
+                    Overdue
                   </span>
                   <span className="text-xs text-slate-400">
                     {Math.round(item.actualCompletionPct * 100)}% done

@@ -165,10 +165,11 @@ export function buildOwnerStats(items: ActionItem[]): OwnerStats[] {
       case "Overdue": stats.overdue++; break;
     }
     if (status !== "Completed") {
+      // Includes overdue items — they are the most "due"
       const end = new Date(item.endDate);
-      if (end >= today && end <= d7) stats.dueSoon7++;
-      if (end >= today && end <= d14) stats.dueSoon14++;
-      if (end >= today && end <= d30) stats.dueSoon30++;
+      if (end <= d7) stats.dueSoon7++;
+      if (end <= d14) stats.dueSoon14++;
+      if (end <= d30) stats.dueSoon30++;
     }
     stats.items.push(item);
 

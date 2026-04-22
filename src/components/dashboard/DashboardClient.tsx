@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ActionItem, DashboardSummary, Snapshot } from "@/types";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  ComposedChart, Area, Line, CartesianGrid, XAxis, YAxis, Legend,
+  ComposedChart, Area, CartesianGrid, XAxis, YAxis, Legend,
 } from "recharts";
 import { HEALTH_COLORS, HEALTH_LABELS, formatDate } from "@/lib/utils";
 import { computeStatus, computeHealth } from "@/lib/dashboard";
@@ -88,21 +88,19 @@ export default function DashboardClient({ summary, items }: Props) {
   }, [allItems]);
 
   // Status distribution chart data (oldest first)
-  const { chartData, currentPct } = useMemo(() => {
+  const chartData = useMemo(() => {
     const sorted = [...snapshots].sort(
       (a, b) => new Date(a.snapshotDate).getTime() - new Date(b.snapshotDate).getTime()
     );
-    const chartData = sorted.map((s) => ({
+    return sorted.map((s) => ({
       date: formatDate(s.snapshotDate),
-      completionPct: s.totalItems > 0 ? Math.round((s.completed / s.totalItems) * 100) : 0,
+      total: s.totalItems,
       notStarted: s.notStarted,
       completed: s.completed,
       onTrack: s.onTrack,
       atRisk: s.atRisk,
       overdue: s.overdue,
     }));
-    const currentPct = chartData.length > 0 ? chartData[chartData.length - 1].completionPct : 0;
-    return { chartData, currentPct };
   }, [snapshots]);
 
   const { total, notStarted, completed, onTrack, atRisk, overdue } = liveStats;
@@ -217,17 +215,7 @@ export default function DashboardClient({ summary, items }: Props) {
 
       {/* Row 3: Status Distribution Over Time */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="flex items-start justify-between mb-4">
-          <h2 className="text-sm font-medium text-slate-700">Status Distribution Over Time</h2>
-          {chartData.length > 0 && (
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold tabular-nums text-slate-800">
-                {currentPct}%
-              </span>
-              <span className="text-xs text-slate-400">complete</span>
-            </div>
-          )}
-        </div>
+        <h2 className="text-sm font-medium text-slate-700 mb-4">Status Distribution Over Time</h2>
         {chartData.length < 2 ? (
           <p className="text-xs text-slate-400 py-8 text-center">
             Trend needs at least 2 snapshots. Visit the Trends page to take a snapshot.
@@ -237,26 +225,22 @@ export default function DashboardClient({ summary, items }: Props) {
             <ComposedChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#94A3B8" />
-              <YAxis yAxisId="count" tick={{ fontSize: 11 }} stroke="#94A3B8" />
-              <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 11 }} stroke="#64748B" unit="%" />
-              <Tooltip contentStyle={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 11 }} stroke="#94A3B8" />
+              <Tooltip
+                contentStyle={{ fontSize: 12 }}
+                formatter={(value, name, props) => {
+                  const tot = props?.payload?.total ?? 0;
+                  const pct = tot > 0 ? Math.round(((value as number) / tot) * 100) : 0;
+                  return [`${value} (${pct}%)`, name];
+                }}
+              />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {/* Stacked areas: bottom → top: Completed, On-track, At-risk, Overdue, Not Started */}
-              <Area yAxisId="count" type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
-              <Area yAxisId="count" type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
-              <Area yAxisId="count" type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
-              <Area yAxisId="count" type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />
-              <Area yAxisId="count" type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />
-              {/* Completion % evolution overlay */}
-              <Line
-                yAxisId="pct"
-                type="monotone"
-                dataKey="completionPct"
-                stroke="#1E3A5F"
-                strokeWidth={2.5}
-                dot={{ r: 3, fill: "#1E3A5F" }}
-                name="Completion %"
-              />
+              <Area type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
+              <Area type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
+              <Area type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
+              <Area type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />
+              <Area type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />
             </ComposedChart>
           </ResponsiveContainer>
         )}

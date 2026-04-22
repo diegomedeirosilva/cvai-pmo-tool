@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ActionItem, DashboardSummary, Snapshot } from "@/types";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  AreaChart, Area, CartesianGrid, XAxis, YAxis, Legend,
+  ComposedChart, Area, Line, CartesianGrid, XAxis, YAxis, Legend,
 } from "recharts";
 import { HEALTH_COLORS, HEALTH_LABELS, formatDate } from "@/lib/utils";
 import { computeStatus, computeHealth } from "@/lib/dashboard";
@@ -88,13 +88,12 @@ export default function DashboardClient({ summary, items }: Props) {
   }, [allItems]);
 
   // Status distribution chart data (oldest first)
-  const { chartData, currentPct, delta14d } = useMemo(() => {
+  const { chartData, currentPct } = useMemo(() => {
     const sorted = [...snapshots].sort(
       (a, b) => new Date(a.snapshotDate).getTime() - new Date(b.snapshotDate).getTime()
     );
     const chartData = sorted.map((s) => ({
       date: formatDate(s.snapshotDate),
-      rawDate: s.snapshotDate,
       completionPct: s.totalItems > 0 ? Math.round((s.completed / s.totalItems) * 100) : 0,
       notStarted: s.notStarted,
       completed: s.completed,
@@ -102,20 +101,8 @@ export default function DashboardClient({ summary, items }: Props) {
       atRisk: s.atRisk,
       overdue: s.overdue,
     }));
-
     const currentPct = chartData.length > 0 ? chartData[chartData.length - 1].completionPct : 0;
-    // Find snapshot from ~14 days before the latest; fall back to earliest
-    let delta14d: number | null = null;
-    if (chartData.length >= 2) {
-      const latestDate = new Date(chartData[chartData.length - 1].rawDate).getTime();
-      const targetMs = latestDate - 14 * 86400 * 1000;
-      let ref = chartData[0];
-      for (const s of chartData) {
-        if (new Date(s.rawDate).getTime() <= targetMs) ref = s;
-      }
-      delta14d = currentPct - ref.completionPct;
-    }
-    return { chartData, currentPct, delta14d };
+    return { chartData, currentPct };
   }, [snapshots]);
 
   const { total, notStarted, completed, onTrack, atRisk, overdue } = liveStats;
@@ -175,9 +162,14 @@ export default function DashboardClient({ summary, items }: Props) {
         {/* Key Metrics — donut */}
         <div className="col-span-3">
           <div className="bg-white rounded-xl border border-slate-200 p-3 h-full flex flex-col">
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Key Metrics</div>
-            <div className="flex justify-center" style={{ height: 180 }}>
-              <ResponsiveContainer width="80%" height={180}>
+            <div className="flex items-baseline justify-between mb-1">
+              <div className="text-xs text-slate-500 uppercase tracking-wider">Key Metrics</div>
+              <div className="text-xs text-slate-400">
+                <span className="font-bold text-slate-700 tabular-nums">{total}</span> total
+              </div>
+            </div>
+            <div className="w-full flex justify-center" style={{ height: 180 }}>
+              <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={2} dataKey="value">
                     {pieData.map((entry, index) => (
@@ -201,7 +193,6 @@ export default function DashboardClient({ summary, items }: Props) {
                 { label: "On-track", value: onTrack, color: "#3B82F6" },
                 { label: "At-risk", value: atRisk, color: "#F59E0B" },
                 { label: "Overdue", value: overdue, color: "#EF4444" },
-                { label: "Total", value: total, color: "#475569" },
               ].map(({ label, value, color }) => (
                 <div key={label} className="flex flex-col items-center flex-1">
                   <div className="text-xs font-bold tabular-nums" style={{ color }}>{value}</div>
@@ -229,23 +220,11 @@ export default function DashboardClient({ summary, items }: Props) {
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-sm font-medium text-slate-700">Status Distribution Over Time</h2>
           {chartData.length > 0 && (
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-bold tabular-nums text-slate-800">
                 {currentPct}%
               </span>
               <span className="text-xs text-slate-400">complete</span>
-              {delta14d !== null && (
-                <span
-                  className="ml-2 text-xs font-medium px-2 py-0.5 rounded"
-                  style={{
-                    backgroundColor: delta14d > 0 ? "#22C55E20" : delta14d < 0 ? "#EF444420" : "#94A3B820",
-                    color: delta14d > 0 ? "#15803D" : delta14d < 0 ? "#B91C1C" : "#64748B",
-                  }}
-                  title="Change vs ~14 days ago"
-                >
-                  {delta14d > 0 ? "▲" : delta14d < 0 ? "▼" : "–"} {delta14d > 0 ? "+" : ""}{delta14d}pp in 14 days
-                </span>
-              )}
             </div>
           )}
         </div>
@@ -254,19 +233,31 @@ export default function DashboardClient({ summary, items }: Props) {
             Trend needs at least 2 snapshots. Visit the Trends page to take a snapshot.
           </p>
         ) : (
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={chartData}>
+          <ResponsiveContainer width="100%" height={260}>
+            <ComposedChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#94A3B8" />
-              <YAxis tick={{ fontSize: 11 }} stroke="#94A3B8" />
+              <YAxis yAxisId="count" tick={{ fontSize: 11 }} stroke="#94A3B8" />
+              <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 11 }} stroke="#64748B" unit="%" />
               <Tooltip contentStyle={{ fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />
-              <Area type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
-              <Area type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
-              <Area type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
-              <Area type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />
-            </AreaChart>
+              {/* Stacked areas: bottom → top: Completed, On-track, At-risk, Overdue, Not Started */}
+              <Area yAxisId="count" type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
+              <Area yAxisId="count" type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
+              <Area yAxisId="count" type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
+              <Area yAxisId="count" type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />
+              <Area yAxisId="count" type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />
+              {/* Completion % evolution overlay */}
+              <Line
+                yAxisId="pct"
+                type="monotone"
+                dataKey="completionPct"
+                stroke="#1E3A5F"
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: "#1E3A5F" }}
+                name="Completion %"
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>

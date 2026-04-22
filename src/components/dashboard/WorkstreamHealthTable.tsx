@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { WorkstreamHealth, ActionItem } from "@/types";
-import { HEALTH_COLORS, HEALTH_LABELS } from "@/lib/utils";
+import { HEALTH_COLORS } from "@/lib/utils";
 import { computeStatus, computeHealth } from "@/lib/dashboard";
 
 interface CategoryHealth {
@@ -73,7 +73,6 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
         <thead>
           <tr className="bg-slate-50">
             <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide">Workstream</th>
-            <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-20">Health</th>
             <th className="text-left px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide">Progress</th>
             <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">Done</th>
             <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">On-track</th>
@@ -113,15 +112,6 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                       <span className="text-slate-400 text-xs">({ws.total} items)</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: color + "20", color }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-                      {HEALTH_LABELS[ws.health] || ws.health}
-                    </span>
-                  </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-slate-100 rounded-full h-1.5 min-w-[60px]">
@@ -133,10 +123,10 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                       <span className="text-xs text-slate-500 w-8 text-right">{Math.round(pct)}%</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 text-center text-xs text-green-600 font-medium">{ws.completed}</td>
-                  <td className="px-3 py-2.5 text-center text-xs text-blue-600 font-medium">{ws.onTrack}</td>
-                  <td className="px-3 py-2.5 text-center text-xs text-amber-600 font-medium">{ws.atRisk || "—"}</td>
-                  <td className="px-3 py-2.5 text-center text-xs text-red-600 font-medium">{ws.overdue || "—"}</td>
+                  <td className="px-3 py-2.5 text-center text-sm text-green-600 font-semibold tabular-nums">{ws.completed}</td>
+                  <td className="px-3 py-2.5 text-center text-sm text-blue-600 font-semibold tabular-nums">{ws.onTrack}</td>
+                  <td className="px-3 py-2.5 text-center text-sm text-amber-600 font-semibold tabular-nums">{ws.atRisk || "—"}</td>
+                  <td className="px-3 py-2.5 text-center text-sm text-red-600 font-semibold tabular-nums">{ws.overdue || "—"}</td>
                 </tr>
                 {isExpanded && categories.map((cat) => {
                   const catPct = cat.total > 0 ? (cat.completed / cat.total) * 100 : 0;
@@ -146,15 +136,6 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                       <td className="pl-10 pr-4 py-2">
                         <span className="text-xs text-slate-600">{cat.category}</span>
                         <span className="text-slate-400 text-xs ml-1.5">({cat.total})</span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                          style={{ backgroundColor: catColor + "20", color: catColor }}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: catColor }} />
-                          {HEALTH_LABELS[cat.health] || cat.health}
-                        </span>
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
@@ -167,10 +148,10 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                           <span className="text-xs text-slate-500 w-8 text-right">{Math.round(catPct)}%</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-center text-xs text-green-600">{cat.completed}</td>
-                      <td className="px-3 py-2 text-center text-xs text-blue-600">{cat.onTrack}</td>
-                      <td className="px-3 py-2 text-center text-xs text-amber-600">{cat.atRisk || "—"}</td>
-                      <td className="px-3 py-2 text-center text-xs text-red-600">{cat.overdue || "—"}</td>
+                      <td className="px-3 py-2 text-center text-sm text-green-600 tabular-nums">{cat.completed}</td>
+                      <td className="px-3 py-2 text-center text-sm text-blue-600 tabular-nums">{cat.onTrack}</td>
+                      <td className="px-3 py-2 text-center text-sm text-amber-600 tabular-nums">{cat.atRisk || "—"}</td>
+                      <td className="px-3 py-2 text-center text-sm text-red-600 tabular-nums">{cat.overdue || "—"}</td>
                     </tr>
                   );
                 })}

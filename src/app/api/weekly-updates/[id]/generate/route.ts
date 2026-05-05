@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, weeklyUpdates, weeklyUpdateSections, actionItems } from "@/lib/db";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { getAIProvider, WeeklyUpdateDeliverable } from "@/lib/ai/provider";
 import { computeStatus } from "@/lib/dashboard";
-import { ActionItem, WeeklyUpdateSection } from "@/types";
+import { ActionItem } from "@/types";
 
 // Per-deliverable parallel calls — each takes ~5-10s, total fits in 60s
 export const maxDuration = 60;
@@ -55,25 +55,6 @@ export async function POST(
       .orderBy(asc(actionItems.sortOrder));
     const typedItems = items as unknown as ActionItem[];
 
-    // Find previous week's update for context
-    const prevUpdates = await db
-      .select()
-      .from(weeklyUpdates)
-      .where(eq(weeklyUpdates.status, "finalized"))
-      .orderBy(desc(weeklyUpdates.weekStartDate))
-      .limit(1);
-
-    const prevSectionsMap = new Map<string, WeeklyUpdateSection>();
-    if (prevUpdates.length > 0 && prevUpdates[0].id !== params.id) {
-      const prevSections = await db
-        .select()
-        .from(weeklyUpdateSections)
-        .where(eq(weeklyUpdateSections.weeklyUpdateId, prevUpdates[0].id));
-      for (const s of prevSections) {
-        prevSectionsMap.set(s.deliverable, s as unknown as WeeklyUpdateSection);
-      }
-    }
-
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -90,7 +71,6 @@ export async function POST(
         console.log(`[Generate] Skipping ${section.deliverable} — all items Not Started`);
         return { section, deliverable: null };
       }
-      const prev = prevSectionsMap.get(section.deliverable);
       return {
         section,
         deliverable: {
@@ -105,13 +85,6 @@ export async function POST(
             notes: i.notes,
             recentlyChanged: new Date(i.updatedAt) >= sevenDaysAgo,
           })),
-          ...(prev && {
-            previousUpdate: {
-              progressUpdate: prev.progressUpdate,
-              nextSteps: prev.nextSteps,
-              needsFromClient: prev.needsFromClient,
-            },
-          }),
         },
       };
     });

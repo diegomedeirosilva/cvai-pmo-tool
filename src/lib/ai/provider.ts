@@ -15,11 +15,6 @@ export interface WeeklyUpdateDeliverable {
     notes: string;
     recentlyChanged: boolean;
   }>;
-  previousUpdate?: {
-    progressUpdate: string;
-    nextSteps: string;
-    needsFromClient: string;
-  };
 }
 
 export interface WeeklyUpdateAIResult {
@@ -36,16 +31,11 @@ function buildSingleDeliverablePrompt(d: WeeklyUpdateDeliverable): string {
     return `- [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${(i.requirement || i.action).slice(0, 100)} (${i.owner})${note}${changed}`;
   }).join("\n");
 
-  let prev = "";
-  if (d.previousUpdate) {
-    prev = `\nLast week's progress note: ${d.previousUpdate.progressUpdate.slice(0, 200)}`;
-  }
-
   return `You are a McKinsey-style strategy consultant writing an executive weekly status update.
 
 Deliverable: ${d.name}
 Items:
-${itemLines}${prev}
+${itemLines}
 
 Write 2 sections:
 1. progressUpdate: 2-4 ultra-concise bullets of what's done/progressing. Each bullet MUST be a short fragment, not a full sentence. No filler verbs, no "Hassen completed X by date" — say "X finalized [date]" or "X 80% complete".

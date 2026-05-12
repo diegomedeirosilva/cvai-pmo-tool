@@ -27,8 +27,8 @@ export interface WeeklyUpdateAIResult {
 function buildSingleDeliverablePrompt(d: WeeklyUpdateDeliverable): string {
   const itemLines = d.items.slice(0, 20).map((i) => {
     const changed = i.recentlyChanged ? " [CHANGED]" : "";
-    const note = i.notes ? ` | Note: ${i.notes.slice(0, 80)}` : "";
-    return `- [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${(i.requirement || i.action).slice(0, 100)} (${i.owner})${note}${changed}`;
+    const note = i.notes ? ` | Note: ${i.notes.slice(0, 300)}` : "";
+    return `- [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${(i.requirement || i.action).slice(0, 150)} (${i.owner})${note}${changed}`;
   }).join("\n");
 
   return `You are a McKinsey-style strategy consultant writing an executive weekly status update.

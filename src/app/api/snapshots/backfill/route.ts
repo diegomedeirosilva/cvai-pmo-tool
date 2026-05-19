@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db, uploads, snapshots } from "@/lib/db";
 import { asc } from "drizzle-orm";
 import { computeHealth, computeStatus } from "@/lib/dashboard";
+import { takeSnapshot } from "@/lib/snapshot";
 import { ActionItem } from "@/types";
 
 export async function POST() {
@@ -67,6 +68,9 @@ export async function POST() {
       });
       inserted++;
     }
+
+    // Take a fresh snapshot for today from the current live items
+    await takeSnapshot("manual");
 
     return NextResponse.json({ backfilled: inserted });
   } catch (e) {

@@ -40,6 +40,8 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
   } | null>(null);
   const [uploadError, setUploadError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalcStatus, setRecalcStatus] = useState("");
   const router = useRouter();
 
   async function deleteUpload(id: string, fileName: string) {
@@ -56,6 +58,24 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
       alert("Delete failed: " + (e instanceof Error ? e.message : String(e)));
     }
     setDeletingId(null);
+  }
+
+  async function recalculateSnapshots() {
+    setRecalculating(true);
+    setRecalcStatus("");
+    try {
+      const res = await fetch("/api/snapshots/backfill", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setRecalcStatus(`Done — ${data.backfilled} snapshot(s) recalculated`);
+      } else {
+        setRecalcStatus("Failed: " + (data.error || "unknown error"));
+      }
+    } catch (e) {
+      setRecalcStatus("Failed: " + (e instanceof Error ? e.message : String(e)));
+    }
+    setRecalculating(false);
+    setTimeout(() => setRecalcStatus(""), 4000);
   }
 
   async function saveProject() {
@@ -218,6 +238,28 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
           </p>
         </section>
       )}
+
+      {/* Recalculate Snapshots */}
+      <section className="bg-white rounded-xl border border-slate-200 p-5">
+        <h2 className="font-semibold text-slate-700 mb-1">Recalculate Trend Snapshots</h2>
+        <p className="text-slate-400 text-xs mb-4">
+          Recomputes all historical snapshots using the current status rules. Use this after changing how statuses are classified.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={recalculateSnapshots}
+            disabled={recalculating}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg disabled:opacity-40"
+          >
+            {recalculating ? "Recalculating…" : "Recalculate Snapshots"}
+          </button>
+          {recalcStatus && (
+            <span className={`text-sm ${recalcStatus.includes("Failed") ? "text-red-600" : "text-green-600"}`}>
+              {recalcStatus}
+            </span>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

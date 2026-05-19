@@ -6,7 +6,7 @@ import { differenceInCalendarDays } from "date-fns";
  * - Completed: actualCompletionPct >= 1.0
  * - Overdue: end date is in the past and not completed
  * - Not Started: actualCompletionPct === 0 and start date is today or in the future
- * - At-risk: behind target AND target is past 50% (no point flagging early-stage items)
+ * - At-risk: actual completion is behind target (any stage)
  * - On-track: everything else
  */
 export function computeStatus(item: { startDate: string; endDate: string; actualCompletionPct: number; targetCompletionPct: number }, asOfDate?: Date): Status {
@@ -16,7 +16,7 @@ export function computeStatus(item: { startDate: string; endDate: string; actual
   if (item.actualCompletionPct >= 1.0) return "Completed";
   if (new Date(item.endDate) < today) return "Overdue";
   if (item.actualCompletionPct === 0 && new Date(item.startDate) >= today) return "Not Started";
-  if (item.actualCompletionPct < item.targetCompletionPct && item.targetCompletionPct > 0.5) return "At-risk";
+  if (item.actualCompletionPct < item.targetCompletionPct) return "At-risk";
   return "On-track";
 }
 

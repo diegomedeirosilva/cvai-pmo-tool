@@ -13,7 +13,13 @@ export async function PUT(
     const itemId = params.id;
     const predecessorId: string | null | undefined = body.predecessorId;
 
-    // 1. Update the action item itself
+    // 0. Fetch existing item to capture baseline before first date change
+    const [existing] = await db.select().from(actionItems).where(eq(actionItems.id, itemId));
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // 1. Update the action item — set baseline from pre-update dates if not yet set
     const updated = await db
       .update(actionItems)
       .set({
@@ -29,14 +35,12 @@ export async function PUT(
         targetCompletionPct: body.targetCompletionPct,
         actualCompletionPct: body.actualCompletionPct,
         notes: body.notes,
+        baselineStartDate: existing.baselineStartDate ?? existing.startDate,
+        baselineEndDate: existing.baselineEndDate ?? existing.endDate,
         updatedAt: new Date(),
       })
       .where(eq(actionItems.id, itemId))
       .returning();
-
-    if (updated.length === 0) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
 
     // 2. Handle dependency change (only if predecessorId key is in the body)
     if (predecessorId !== undefined) {
@@ -81,11 +85,19 @@ export async function PUT(
 
       const now = new Date();
       await Promise.all(
-        cascadeChanges.map((change) =>
-          db.update(actionItems)
-            .set({ startDate: change.startDate, endDate: change.endDate, updatedAt: now })
-            .where(eq(actionItems.id, change.id))
-        )
+        cascadeChanges.map((change) => {
+          const orig = typedItems.find((i) => i.id === change.id);
+          return db.update(actionItems)
+            .set({
+              startDate: change.startDate,
+              endDate: change.endDate,
+              // Preserve baseline from pre-cascade dates if not yet set
+              baselineStartDate: orig?.baselineStartDate ?? orig?.startDate,
+              baselineEndDate: orig?.baselineEndDate ?? orig?.endDate,
+              updatedAt: now,
+            })
+            .where(eq(actionItems.id, change.id));
+        })
       );
 
       for (const change of cascadeChanges) {

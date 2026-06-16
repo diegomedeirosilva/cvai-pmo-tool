@@ -1,4 +1,4 @@
-import { db, actionItems, projects } from "@/lib/db";
+import { db, actionItems, projects, dependencies } from "@/lib/db";
 import { asc } from "drizzle-orm";
 import { buildDashboardSummary } from "@/lib/dashboard";
 import { ActionItem, Project } from "@/types";
@@ -16,10 +16,10 @@ export default async function DashboardPage() {
       return <EmptyState />;
     }
 
-    const items = await db
-      .select()
-      .from(actionItems)
-      .orderBy(asc(actionItems.sortOrder));
+    const [items, deps] = await Promise.all([
+      db.select().from(actionItems).orderBy(asc(actionItems.sortOrder)),
+      db.select({ predecessorId: dependencies.predecessorId, successorId: dependencies.successorId }).from(dependencies),
+    ]);
 
     const summary = buildDashboardSummary(
       projectRows[0] as unknown as Project,
@@ -27,7 +27,7 @@ export default async function DashboardPage() {
       []
     );
 
-    return <DashboardClient summary={summary} items={items as unknown as ActionItem[]} />;
+    return <DashboardClient summary={summary} items={items as unknown as ActionItem[]} dependencies={deps} />;
   } catch (e) {
     console.error("Dashboard error:", e);
     return (

@@ -1,5 +1,5 @@
 import { db, actionItems, projects, risks, snapshots } from "@/lib/db";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { buildDashboardSummary } from "@/lib/dashboard";
 import { ActionItem, Project, Risk } from "@/types";
 
@@ -17,6 +17,9 @@ export async function takeSnapshot(source: "manual" | "upload" | "cron") {
   );
 
   const today = new Date().toISOString().split("T")[0];
+
+  // Delete any existing snapshot for today before inserting to avoid duplicates
+  await db.delete(snapshots).where(eq(snapshots.snapshotDate, today));
 
   const [inserted] = await db.insert(snapshots).values({
     snapshotDate: today,

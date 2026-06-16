@@ -41,10 +41,16 @@ export async function POST(req: NextRequest) {
     await db.delete(actionItems);
     await db.delete(categorySummaries);
 
-    // 3. Insert new action items
+    // 3. Insert new action items — freeze Excel dates as baseline
     let insertedItems: typeof actionItems.$inferSelect[] = [];
     if (parsed.actionItems.length > 0) {
-      insertedItems = await db.insert(actionItems).values(parsed.actionItems).returning();
+      insertedItems = await db.insert(actionItems).values(
+        parsed.actionItems.map((item) => ({
+          ...item,
+          baselineStartDate: item.startDate,
+          baselineEndDate: item.endDate,
+        }))
+      ).returning();
     }
 
     // 4. Insert dependencies (map by index to ID)

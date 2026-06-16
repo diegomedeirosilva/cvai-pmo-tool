@@ -13,9 +13,16 @@ export async function POST() {
     const uploadRows = await db.select().from(uploads).orderBy(asc(uploads.uploadedAt));
     let inserted = 0;
 
+    // Skip today's date — each upload's snapshot contains items from BEFORE that upload
+    // (the archived previous state). Today's correct snapshot comes from takeSnapshot("manual").
+    const todayStr = new Date().toISOString().split("T")[0];
+
     for (const upload of uploadRows) {
       const items = upload.snapshot as unknown as ActionItem[];
       if (!items || items.length === 0) continue;
+
+      const snapshotDate = new Date(upload.uploadedAt).toISOString().split("T")[0];
+      if (snapshotDate === todayStr) continue;
 
       // Use the upload date as the reference for status computation
       const asOfDate = new Date(upload.uploadedAt);
@@ -55,8 +62,6 @@ export async function POST() {
         atRisk: c.atRisk, overdue: c.overdue,
         completionPct: c.total > 0 ? c.completed / c.total : 0,
       }));
-
-      const snapshotDate = new Date(upload.uploadedAt).toISOString().split("T")[0];
 
       await db.insert(snapshots).values({
         snapshotDate,

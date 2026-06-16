@@ -42,6 +42,8 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
   const [recalcStatus, setRecalcStatus] = useState("");
+  const [settingBaseline, setSettingBaseline] = useState(false);
+  const [baselineStatus, setBaselineStatus] = useState("");
   const router = useRouter();
 
   async function deleteUpload(id: string, fileName: string) {
@@ -58,6 +60,24 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
       alert("Delete failed: " + (e instanceof Error ? e.message : String(e)));
     }
     setDeletingId(null);
+  }
+
+  async function setBaselineFromCurrentDates() {
+    setSettingBaseline(true);
+    setBaselineStatus("");
+    try {
+      const res = await fetch("/api/action-items/set-baseline", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setBaselineStatus(data.updated > 0 ? `Done — ${data.updated} item(s) baselined` : "All items already have a baseline");
+      } else {
+        setBaselineStatus("Failed: " + (data.error || "unknown error"));
+      }
+    } catch (e) {
+      setBaselineStatus("Failed: " + (e instanceof Error ? e.message : String(e)));
+    }
+    setSettingBaseline(false);
+    setTimeout(() => setBaselineStatus(""), 4000);
   }
 
   async function recalculateSnapshots() {
@@ -238,6 +258,28 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
           </p>
         </section>
       )}
+
+      {/* Baseline */}
+      <section className="bg-white rounded-xl border border-slate-200 p-5">
+        <h2 className="font-semibold text-slate-700 mb-1">Set Schedule Baseline</h2>
+        <p className="text-slate-400 text-xs mb-4">
+          Anchors current start/end dates as the original plan baseline. Items rescheduled after this will show slippage in the Gantt chart. Only affects items without an existing baseline.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={setBaselineFromCurrentDates}
+            disabled={settingBaseline}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg disabled:opacity-40"
+          >
+            {settingBaseline ? "Setting…" : "Set Baseline from Current Dates"}
+          </button>
+          {baselineStatus && (
+            <span className={`text-sm ${baselineStatus.includes("Failed") ? "text-red-600" : "text-green-600"}`}>
+              {baselineStatus}
+            </span>
+          )}
+        </div>
+      </section>
 
       {/* Recalculate Snapshots */}
       <section className="bg-white rounded-xl border border-slate-200 p-5">

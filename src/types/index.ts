@@ -26,6 +26,8 @@ export interface ActionItem {
   actualCompletionPct: number;  // 0.0 to 1.0 — manually set by PMO team
   notes: string;
   sortOrder: number;
+  baselineStartDate?: string | null;
+  baselineEndDate?: string | null;
   createdAt: string;
   updatedAt: string;
 }

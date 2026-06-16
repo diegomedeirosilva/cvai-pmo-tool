@@ -59,10 +59,14 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
 
   const startDate = useMemo(() => {
     if (items.length === 0) return new Date("2026-02-01");
-    const minDate = items.reduce((min, item) => {
-      const d = new Date(item.startDate);
-      return d < min ? d : min;
-    }, new Date(items[0].startDate));
+    // Include baseline start dates so baseline bars don't render off-screen after a cascade
+    const allStarts = items.flatMap((item) =>
+      [item.startDate, item.baselineStartDate].filter(Boolean) as string[]
+    );
+    const minDate = allStarts.reduce((min, d) => {
+      const dt = new Date(d);
+      return dt < min ? dt : min;
+    }, new Date(allStarts[0]));
     return new Date(minDate.getFullYear(), minDate.getMonth(), 1);
   }, [items]);
 
@@ -662,6 +666,15 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                         fill="none" stroke={color} strokeWidth={1} strokeDasharray="3,3" opacity={0.4}
                       />
                     )}
+                    {/* Baseline bar — shown when item has slipped from original plan */}
+                    {!isDragging && item.baselineStartDate && item.baselineEndDate && item.baselineEndDate !== item.endDate && (
+                      <rect
+                        x={dateToX(item.baselineStartDate)} y={y}
+                        width={Math.max(dateToX(item.baselineEndDate) - dateToX(item.baselineStartDate), 4)}
+                        height={BAR_HEIGHT} rx={3}
+                        fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.5}
+                      />
+                    )}
                     <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill={color} opacity={isDragging ? 0.45 : 0.25} />
                     <rect x={x} y={y} width={fillWidth} height={BAR_HEIGHT} rx={3} fill={color} />
                     {/* Interaction rect */}
@@ -770,6 +783,11 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                   <p><span className="text-slate-400">Dates:</span> {formatDate(tooltip.item.startDate)} → {formatDate(tooltip.item.endDate)}</p>
                   <p><span className="text-slate-400">Actual:</span> {formatPct(tooltip.item.actualCompletionPct)}</p>
                   <p><span className="text-slate-400">Target:</span> {formatPct(tooltip.item.targetCompletionPct)}</p>
+                  {tooltip.item.baselineEndDate && tooltip.item.baselineEndDate !== tooltip.item.endDate && (
+                    <p className="text-amber-600 mt-1 border-t border-slate-100 pt-1">
+                      Original end: {formatDate(tooltip.item.baselineEndDate)} — slipped {Math.round((new Date(tooltip.item.endDate).getTime() - new Date(tooltip.item.baselineEndDate).getTime()) / 86400000)}d
+                    </p>
+                  )}
                   {tooltip.item.notes && (
                     <p className="text-slate-500 mt-1 border-t border-slate-100 pt-1">{tooltip.item.notes.slice(0, 100)}</p>
                   )}

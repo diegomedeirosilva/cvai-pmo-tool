@@ -33,6 +33,8 @@ export const actionItems = pgTable("action_items", {
   actualCompletionPct: real("actual_completion_pct").notNull().default(0),
   notes: text("notes").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
+  baselineStartDate: date("baseline_start_date"),
+  baselineEndDate: date("baseline_end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

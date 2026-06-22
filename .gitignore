@@ -36,3 +36,15 @@ next-env.d.ts
 
 # uploads
 /uploads/
+
+# local-only demo/presentation deck (contains real client data — keep off GitHub)
+/demo/
+
+# Client & sensitive documents — readiness plans, PRD, decks (keep off GitHub)
+*.xlsx
+*.xls
+*.docx
+*.doc
+*.pdf
+*.pptx
+*.ppt

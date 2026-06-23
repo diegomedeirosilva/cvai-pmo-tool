@@ -68,6 +68,17 @@ export default function ReportsPage() {
       <p className="text-slate-500 text-sm mb-6">Download structured data for reporting and presentations.</p>
 
       <div className="space-y-4">
+        {/* Executive HTML Report — featured */}
+        <ExportCard
+          icon="🖥️"
+          title="Executive HTML Report"
+          description="Interactive, board-ready status deck generated live from current data — navigate on screen with the rail/arrow keys, expand tasks, and Export to save a shareable HTML file. Designed to replace the static PDF/PPTX outputs."
+          badge="HTML · interactive · printable"
+          badgeColor="bg-teal-100 text-teal-700"
+          onDownload={() => window.open("/api/reports/html", "_blank")}
+          buttonLabel="Open report"
+        />
+
         {/* Round-trip Excel */}
         <ExportCard
           icon="📊"
@@ -125,6 +136,7 @@ function ExportCard({
   onDownload,
   loading,
   disabled,
+  buttonLabel,
 }: {
   icon: string;
   title: string;
@@ -134,6 +146,7 @@ function ExportCard({
   onDownload?: () => void;
   loading?: boolean;
   disabled?: boolean;
+  buttonLabel?: string;
 }) {
   return (
     <div className={`bg-white rounded-xl border border-slate-200 p-5 ${disabled ? "opacity-50" : ""}`}>
@@ -154,7 +167,7 @@ function ExportCard({
             disabled={loading}
             className="flex-shrink-0 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
           >
-            {loading ? "Exporting…" : "Download"}
+            {loading ? "Exporting…" : buttonLabel || "Download"}
           </button>
         )}
       </div>

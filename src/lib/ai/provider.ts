@@ -5,6 +5,11 @@ export interface AIProvider {
 
 export interface WeeklyUpdateDeliverable {
   name: string;
+  // Deterministic rollup line (e.g. "3/9 complete · on track"), shown to the model
+  // for context. The route prepends it as the first progress bullet — the model
+  // must NOT emit its own count rollup.
+  summaryLine: string;
+  // OPEN items only (On-track / At-risk / Overdue). Completed & Not Started are excluded.
   items: Array<{
     action: string;
     requirement: string;
@@ -13,9 +18,12 @@ export interface WeeklyUpdateDeliverable {
     actualCompletionPct: number;
     endDate: string;
     notes: string;
-    recentlyChanged: boolean;
+    commentChanged: boolean; // note changed since last week's upload
   }>;
 }
+
+// Status sort weight for ordering open items: most urgent first.
+const STATUS_WEIGHT: Record<string, number> = { Overdue: 0, "At-risk": 1, "On-track": 2 };
 
 export interface WeeklyUpdateAIResult {
   deliverable: string;
@@ -25,29 +33,45 @@ export interface WeeklyUpdateAIResult {
 }
 
 function buildSingleDeliverablePrompt(d: WeeklyUpdateDeliverable): string {
-  const itemLines = d.items.slice(0, 20).map((i) => {
-    const changed = i.recentlyChanged ? " [CHANGED]" : "";
-    const note = i.notes ? ` | Note: ${i.notes.slice(0, 300)}` : "";
-    return `- [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${(i.requirement || i.action).slice(0, 150)} (${i.owner})${note}${changed}`;
+  // Sort: newly-commented first, then by urgency (Overdue → At-risk → On-track), then by due date.
+  const sorted = [...d.items].sort((a, b) => {
+    if (a.commentChanged !== b.commentChanged) return a.commentChanged ? -1 : 1;
+    const sw = (STATUS_WEIGHT[a.status] ?? 3) - (STATUS_WEIGHT[b.status] ?? 3);
+    if (sw !== 0) return sw;
+    return a.endDate.localeCompare(b.endDate);
+  });
+
+  const itemLines = sorted.slice(0, 25).map((i) => {
+    const note = i.notes ? ` | LATEST: ${i.notes.slice(0, 400)}` : " | (no note)";
+    const tag = i.commentChanged ? " [NEW]" : "";
+    return `- [${i.status}, ${Math.round(i.actualCompletionPct * 100)}%, due ${i.endDate}] ${(i.requirement || i.action).slice(0, 200)} (${i.owner})${note}${tag}`;
   }).join("\n");
 
-  return `You are a McKinsey-style strategy consultant writing an executive weekly status update.
+  return `You are a McKinsey-style strategy consultant writing the OPEN-ITEMS section of an executive weekly status update for one workstream.
 
-Deliverable: ${d.name}
-Items:
+Workstream: ${d.name}
+Health summary (already shown to the reader — do NOT repeat as a bullet): ${d.summaryLine}
+
+OPEN items below (status On-track, At-risk, or Overdue). Each line carries its LATEST comment from the source plan. Items tagged [NEW] changed since last week.
+
 ${itemLines}
 
-Write 2 sections:
-1. progressUpdate: 2-4 ultra-concise bullets of what's done/progressing. Each bullet MUST be a short fragment, not a full sentence. No filler verbs, no "Hassen completed X by date" — say "X finalized [date]" or "X 80% complete".
-2. nextSteps: 2-3 ultra-concise bullets of upcoming work. Same telegraphic style.
+Write two sections.
 
-Style rules (critical):
-- Telegraphic, fragment-style: "Full BP model finalized 31 Mar" NOT "Hassen completed the full BP model by March 31"
-- Drop subject if obvious. Drop articles. Use noun + status + date.
-- Max ~10 words per bullet.
-- Concrete dates and percentages, no narrative.
+progressUpdate:
+- ONE bullet per OPEN item above, reflecting the SUBSTANCE of its LATEST comment. Do not merge items. Do not skip an item because its comment seems minor.
+- If an item shows "(no note)", still write a bullet from its requirement + status + due date.
+- ORDER: [NEW] items first, then Overdue, then At-risk, then On-track.
+- Telegraphic fragments, max ~12 words. Noun + status + date. Drop articles and obvious subjects. e.g. "Vendor SOW signed, kickoff 30 Jun" NOT "The vendor signed the SOW and we will kick off on June 30".
+- Surface concrete dates, %s, blockers, owners only where they add signal.
 
-Each bullet starts with "- " (dash space).
+nextSteps:
+- 2-5 telegraphic bullets: the next concrete action for the open items, from the latest comments, owners, and due dates. Forward-looking only.
+
+HARD RULES:
+- NEVER write a bullet about a COMPLETED item or a past finished milestone with a date (e.g. "Procurement assessment complete Apr 4"). Excluded by design.
+- Do NOT write a count/rollup bullet (e.g. "3/9 complete") — the system adds it.
+- Every bullet starts with "- " (dash space).
 
 Respond with ONLY a valid JSON object (no markdown, no preamble). Shape:
 {"progressUpdate":"- bullet one\\n- bullet two","nextSteps":"- bullet"}`;
@@ -112,7 +136,7 @@ async function createAnthropicProvider(): Promise<AIProvider> {
     async generateWeeklyUpdateForDeliverable(d) {
       const message = await client.messages.create({
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-        max_tokens: 800,
+        max_tokens: 1200,
         messages: [{ role: "user", content: buildSingleDeliverablePrompt(d) }],
       });
       const block = message.content[0];
@@ -137,7 +161,7 @@ async function createOpenAIProvider(): Promise<AIProvider> {
     async generateWeeklyUpdateForDeliverable(d) {
       const completion = await client.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 800,
+        max_tokens: 1200,
         response_format: { type: "json_object" },
         messages: [{ role: "user", content: buildSingleDeliverablePrompt(d) }],
       });

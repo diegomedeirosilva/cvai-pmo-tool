@@ -4,6 +4,9 @@ import { projects, actionItems, risks } from "@/lib/db/schema";
 import { desc, asc } from "drizzle-orm";
 import { buildDashboardSummary, buildOwnerStats } from "@/lib/dashboard";
 
+// Reads the DB with no-store; must render per-request, never prerendered at build.
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const [project] = await db.select().from(projects).orderBy(desc(projects.createdAt)).limit(1);

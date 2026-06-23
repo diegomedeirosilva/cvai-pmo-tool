@@ -13,7 +13,11 @@ function getDb() {
         "DATABASE_URL is not set. Add it to .env.local (get a free DB at neon.tech)"
       );
     }
-    const sql = neon(url);
+    // IMPORTANT: the neon HTTP driver issues each query via `fetch`, which
+    // Next.js caches by default. Without `no-store`, DB reads can be served
+    // from Next's persisted Data Cache and return stale data (e.g. an old item
+    // count) even on a force-dynamic route. Disable caching on every DB query.
+    const sql = neon(url, { fetchOptions: { cache: "no-store" } });
     _db = drizzle(sql, { schema });
   }
   return _db;

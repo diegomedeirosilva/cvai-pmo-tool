@@ -3,6 +3,10 @@ import { actionItems } from "@/lib/db/schema";
 import { asc } from "drizzle-orm";
 import Sidebar from "@/components/layout/Sidebar";
 
+// The dashboard always reflects current DB data (queries run with no-store),
+// so it must render dynamically — never statically prerendered at build time.
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {

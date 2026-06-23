@@ -172,27 +172,40 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
 
   // Group date ranges for summary bars when collapsed
   const groupStats = useMemo(() => {
-    const stats = new Map<string, { minStart: string; maxEnd: string; completedPct: number; completed: number; total: number }>();
+    const stats = new Map<string, { minStart: string; maxEnd: string; completedPct: number; completed: number; total: number; status: string; overdue: boolean }>();
     for (const group of groupedItems) {
       if (group.items.length === 0) continue;
       let minStart = group.items[0].startDate;
       let maxEnd = group.items[0].endDate;
-      let completed = 0;
+      let completed = 0, nOverdue = 0, nAtRisk = 0, nOnTrack = 0, nNotStarted = 0;
       for (const item of group.items) {
         if (item.startDate < minStart) minStart = item.startDate;
         if (item.endDate > maxEnd) maxEnd = item.endDate;
         if (item.actualCompletionPct >= 1.0) completed++;
+        // most-severe status rollup → drives the collapsed bar color
+        const st = item.actualCompletionPct >= 1.0 ? "Completed"
+          : new Date(item.endDate) < today ? "Overdue"
+          : item.actualCompletionPct === 0 && new Date(item.startDate) >= today ? "Not Started"
+          : item.actualCompletionPct < item.targetCompletionPct ? "At-risk"
+          : "On-track";
+        if (st === "Overdue") nOverdue++;
+        else if (st === "At-risk") nAtRisk++;
+        else if (st === "On-track") nOnTrack++;
+        else if (st === "Not Started") nNotStarted++;
       }
+      const status = nOverdue ? "Overdue" : nAtRisk ? "At-risk" : nOnTrack ? "On-track" : nNotStarted ? "Not Started" : "Completed";
       stats.set(group.label, {
         minStart,
         maxEnd,
         completedPct: completed / group.items.length,
         completed,
         total: group.items.length,
+        status,
+        overdue: nOverdue > 0,
       });
     }
     return stats;
-  }, [groupedItems]);
+  }, [groupedItems, today]);
 
   // Flat rows (respecting collapsed groups)
   const rows = useMemo(() => {
@@ -245,13 +258,12 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
   const todayX = dateToXFromDate(today);
   const day1X = project ? dateToX(project.day1TargetDate) : null;
 
-  function getBarColor(item: ActionItem): string {
-    const status = item.actualCompletionPct >= 1.0 ? "Completed"
+  function statusOf(item: ActionItem): string {
+    return item.actualCompletionPct >= 1.0 ? "Completed"
       : new Date(item.endDate) < today ? "Overdue"
       : item.actualCompletionPct === 0 && new Date(item.startDate) >= today ? "Not Started"
       : item.actualCompletionPct < item.targetCompletionPct ? "At-risk"
       : "On-track";
-    return STATUS_COLORS[status] || STATUS_COLORS["On-track"];
   }
 
   function handleBarClick(item: ActionItem) {
@@ -557,6 +569,13 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
               <span className="text-xs text-slate-500">{status}</span>
             </div>
           ))}
+          <div className="flex items-center gap-1">
+            <div
+              className="w-3 h-3 rounded-sm"
+              style={{ background: "repeating-linear-gradient(45deg, rgba(239,68,68,.5) 0, rgba(239,68,68,.5) 1.5px, rgba(239,68,68,.1) 1.5px, rgba(239,68,68,.1) 5px)" }}
+            />
+            <span className="text-xs text-slate-500">Overdue slip</span>
+          </div>
         </div>
       </div>
 
@@ -600,6 +619,13 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
           {/* SVG chart area */}
           <div className="overflow-x-auto flex-1 relative">
             <svg ref={svgRef} width={chartWidth} height={totalHeight} className="block">
+              <defs>
+                {/* Diagonal red hatch — marks the overdue slip (original end → today) */}
+                <pattern id="overdue-hatch" patternUnits="userSpaceOnUse" width={8} height={8} patternTransform="rotate(45)">
+                  <rect width={8} height={8} fill="#EF4444" opacity={0.1} />
+                  <rect width={1.5} height={8} fill="#EF4444" opacity={0.5} />
+                </pattern>
+              </defs>
               {/* Grid lines */}
               {gridLines.map((line, i) => (
                 <g key={i}>
@@ -652,7 +678,8 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                 const endX = isDragging ? drag.currentBarEndX : dateToX(item.endDate);
                 const width = Math.max(endX - x, 4);
                 const y = HEADER_HEIGHT + idx * ROW_HEIGHT + BAR_PADDING;
-                const color = getBarColor(item);
+                const status = statusOf(item);
+                const color = STATUS_COLORS[status] || STATUS_COLORS["On-track"];
                 const fillWidth = isDragging ? 0 : width * item.actualCompletionPct;
 
                 return (
@@ -675,8 +702,20 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                         fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.5}
                       />
                     )}
-                    <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill={color} opacity={isDragging ? 0.45 : 0.25} />
-                    <rect x={x} y={y} width={fillWidth} height={BAR_HEIGHT} rx={3} fill={color} />
+                    {!isDragging && status === "Overdue" ? (
+                      <>
+                        {/* Overdue: solid from start → original end, red hatch from end → today */}
+                        <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill={color} />
+                        {todayX > endX && (
+                          <rect x={endX} y={y} width={todayX - endX} height={BAR_HEIGHT} rx={3} fill="url(#overdue-hatch)" />
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill={color} opacity={isDragging ? 0.45 : 0.25} />
+                        <rect x={x} y={y} width={fillWidth} height={BAR_HEIGHT} rx={3} fill={color} />
+                      </>
+                    )}
                     {/* Interaction rect */}
                     <rect
                       x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill="transparent"
@@ -724,14 +763,18 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                 const endX = dateToX(stats.maxEnd);
                 const width = Math.max(endX - x, 4);
                 const y = HEADER_HEIGHT + idx * ROW_HEIGHT + BAR_PADDING;
-                const fillWidth = width * stats.completedPct;
+                const groupColor = STATUS_COLORS[stats.status] || STATUS_COLORS["On-track"];
+                // Solid status color to the planned end; overdue slip → red hatch out to today.
+                const overrunW = stats.overdue && todayX > endX ? todayX - endX : 0;
 
                 return (
                   <g key={`group-bar-${row.label}`}>
-                    <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill="#64748B" opacity={0.15} />
-                    <rect x={x} y={y} width={fillWidth} height={BAR_HEIGHT} rx={3} fill="#22C55E" opacity={0.5} />
+                    <rect x={x} y={y} width={width} height={BAR_HEIGHT} rx={3} fill={groupColor} />
+                    {overrunW > 0 && (
+                      <rect x={endX} y={y} width={overrunW} height={BAR_HEIGHT} rx={3} fill="url(#overdue-hatch)" />
+                    )}
                     {width > 60 && (
-                      <text x={x + 4} y={y + BAR_HEIGHT / 2 + 4} fontSize={10} fill="#475569" style={{ pointerEvents: "none" }}>
+                      <text x={x + 4} y={y + BAR_HEIGHT / 2 + 4} fontSize={10} fill="white" style={{ pointerEvents: "none" }}>
                         {stats.completed}/{stats.total} completed
                       </text>
                     )}

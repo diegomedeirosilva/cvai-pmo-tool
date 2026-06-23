@@ -59,19 +59,21 @@ function cleanText(val: unknown): string {
 
 // parseStatus removed — status is now computed from dates and completion %
 
-// Parse a cell reference to the end-date column: "K5", "=K5", "$K$5", "'Sheet'!K5", etc.
+// Parse the predecessor row from a start-date formula that references the end-date column:
+// "K5", "=K5", "$K$5", "'Sheet'!K5", and offset forms like "K77-7" (start = predecessor end ± n days).
+// The reference may appear anywhere in the formula; the FIRST end-date-column reference defines the
+// predecessor link (the arithmetic offset only shifts the date, not the dependency).
 // ExcelJS returns formula strings WITHOUT the leading "=", so we handle both forms.
 // The end-date column letter is dynamic — it shifted from I (v6/v8) to K (v10).
 function parseDependencyRef(formula: string | null, endDateColLetter: string): number | null {
   if (!formula) return null;
-  const f = formula.trim();
-  // Strip optional leading "="
-  const noEq = f.replace(/^=/, "");
-  // Strip optional sheet prefix like 'JV Readiness Plan'! or Sheet1!
-  const noSheet = noEq.replace(/^(?:'[^']+'|[^'!]+)!/, "");
-  // Match $K$5, K$5, $K5, K5 (using dynamic end-date column letter)
-  const pattern = new RegExp(`^\\$?${endDateColLetter}\\$?(\\d+)$`, "i");
-  const match = noSheet.match(pattern);
+  let f = formula.trim().replace(/^=/, "");
+  // Strip any sheet-qualifier prefixes like 'JV Readiness Plan'! or Sheet1! so they can't be misread
+  f = f.replace(/(?:'[^']+'|[A-Za-z0-9_]+)!/g, "");
+  // First reference to the end-date column: optional $ anchors, must not be part of a longer column
+  // name (e.g. column "AK" must not match "K"). Matches K5, $K$5, and the row in K77-7.
+  const ref = new RegExp(`(?:^|[^A-Za-z0-9_])\\$?${endDateColLetter}\\$?(\\d+)`, "i");
+  const match = f.match(ref);
   if (match) return parseInt(match[1], 10);
   return null;
 }
@@ -271,37 +273,13 @@ export async function parseExcelWorkplan(buffer: Buffer): Promise<ParsedWorkbook
     }
   }
 
-  // --- Date-based dependency fallback ---
-  // If formula detection found nothing (ExcelJS shared-formula limitation),
-  // infer dependencies by matching: item[j].endDate === item[i].startDate
-  // within the same workstream+category (sequential chain pattern).
-  // Build index: "endDate:category:workstream" → last item index with that end date
-  const endDateIndex = new Map<string, number>();
-  for (let i = 0; i < actionItems.length; i++) {
-    const item = actionItems[i];
-    const key = `${item.endDate}|${item.category}|${item.workstream}`;
-    endDateIndex.set(key, i); // last one wins (handles duplicates)
-  }
-
-  let dateDepsFound = 0;
-  for (let i = 0; i < actionItems.length; i++) {
-    const item = actionItems[i];
-    const key = `${item.startDate}|${item.category}|${item.workstream}`;
-    const predIndex = endDateIndex.get(key);
-    if (predIndex !== undefined && predIndex < i) {
-      const depKey = `${predIndex}-${i}`;
-      if (!depPairs.has(depKey)) {
-        depPairs.add(depKey);
-        dependencies.push({ predecessorIndex: predIndex, successorIndex: i });
-        dateDepsFound++;
-      }
-    }
-  }
+  // NOTE: Dependencies are derived EXCLUSIVELY from Excel start-date formulas (e.g. =K5).
+  // We deliberately do NOT infer dependencies from matching dates — coincidental date
+  // alignment between unrelated items (e.g. across categories) produced false links.
 
   console.log(
     `[Parser] Items: ${actionItems.length}, Categories: ${categorySummaries.length}, ` +
-    `Formula deps: ${formulaDepsFound}, Date-inferred deps: ${dateDepsFound}, ` +
-    `Total deps: ${dependencies.length}`
+    `Formula deps: ${formulaDepsFound}, Total deps: ${dependencies.length}`
   );
 
   // Fix category summaries: assign workstream from the first action item in that category

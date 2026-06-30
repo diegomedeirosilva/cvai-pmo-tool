@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import { ActionItem, Dependency, Project } from "@/types";
-import { computeStatus } from "@/lib/dashboard";
+import { computeStatus, timeBasedTarget } from "@/lib/dashboard";
 
 const STATUS_VALUES = ["Not Started", "Completed", "On-track", "At-risk", "Overdue"];
 const STATUS_COLORS: Record<string, string> = {
@@ -210,7 +210,7 @@ export async function exportAnalytics(
     rawSheet.addRow([
       item.id, item.workstream, item.category, item.requirement, item.action,
       item.owner, status, item.startDate, item.duration, item.endDate,
-      Math.round(item.targetCompletionPct * 100) + "%",
+      Math.round(timeBasedTarget(item) * 100) + "%",
       Math.round(item.actualCompletionPct * 100) + "%", item.notes,
       item.createdAt,
     ]);
@@ -274,7 +274,7 @@ export async function exportAnalytics(
     timelineSheet.addRow([
       item.workstream, item.category, item.requirement, item.owner, status,
       item.startDate, item.endDate, item.duration,
-      Math.round(item.targetCompletionPct * 100) + "%",
+      Math.round(timeBasedTarget(item) * 100) + "%",
       Math.round(item.actualCompletionPct * 100) + "%", item.notes,
     ]);
   }

@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { ActionItem, Dependency } from "@/types";
 import { STATUS_COLORS, formatDate, HEALTH_COLORS, HEALTH_LABELS } from "@/lib/utils";
-import { computeHealth, computeStatus } from "@/lib/dashboard";
+import { computeHealth, computeStatus, timeBasedTarget } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
 interface CategorySummaryRow {
@@ -269,7 +269,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                           {formatDate(item.startDate)} → {formatDate(item.endDate)}
                         </td>
                         <td className="px-3 py-2.5 text-right text-slate-600 font-medium">
-                          {Math.round(item.targetCompletionPct * 100)}%
+                          {Math.round(timeBasedTarget(item) * 100)}%
                         </td>
                         <td className="px-3 py-2.5 text-slate-400 max-w-xs">
                           <p className="line-clamp-2">{item.notes}</p>

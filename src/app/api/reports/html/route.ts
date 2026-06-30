@@ -7,6 +7,16 @@ import { ActionItem, Risk } from "@/types";
 
 export const dynamic = "force-dynamic";
 
+// Report "Week of" label, snapped to the SUNDAY of the update's week (weekly updates are
+// stored Monday-keyed; the report shows the week as starting Sunday).
+function weekOfSundayLabel(weekStartDate: string | null, fallback: string): string {
+  if (!weekStartDate) return fallback;
+  const d = new Date(weekStartDate + "T00:00:00");
+  if (isNaN(d.getTime())) return fallback;
+  d.setDate(d.getDate() - d.getDay()); // getDay: 0=Sun → snap back to Sunday
+  return "Week of " + d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 export async function GET(req: NextRequest) {
   try {
     const [project] = await db.select().from(projects).orderBy(desc(projects.createdAt)).limit(1);
@@ -77,7 +87,7 @@ export async function GET(req: NextRequest) {
     let weeklySections: ReportSection[] = [];
     let weekLabel: string | undefined;
     if (latestUpdate) {
-      weekLabel = latestUpdate.weekLabel;
+      weekLabel = weekOfSundayLabel(latestUpdate.weekStartDate, latestUpdate.weekLabel);
       const secs = await db
         .select()
         .from(weeklyUpdateSections)

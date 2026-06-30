@@ -283,6 +283,10 @@ function glanceSlide(p: ReportPayload): string {
               <div class="donut-chart">${donut}<div class="donut-center"><b>${complete}%</b><span>complete</span></div></div>
               <div class="donut-legend">${legend}</div>
             </div>
+            <div class="day1-strip">
+              <div><span class="d1k">Day-1 target</span><span class="d1v">${fmtDate(s.project.day1TargetDate)}</span></div>
+              <div class="d1days"><b>${s.daysToDay1}</b><span>days to go</span></div>
+            </div>
           </div>
           <div class="att-card">
             <div class="col-label">Requires attention · ${attention.length} overdue &amp; at-risk</div>
@@ -290,7 +294,6 @@ function glanceSlide(p: ReportPayload): string {
           </div>
         </div>
       </div>
-      <div class="foot"><span>${esc(s.project.title)}</span><span>Private &amp; Confidential</span></div>
     </div>
   </section>`;
 }
@@ -396,7 +399,6 @@ function workstreamSlide(p: ReportPayload): string {
           <div class="ws-detail-wrap">${details}</div>
         </div>
       </div>
-      <div class="foot"><span>${esc(s.project.title)}</span><span>Private &amp; Confidential</span></div>
     </div>
   </section>`;
 }
@@ -510,12 +512,11 @@ function timelineSlide(p: ReportPayload): string {
           </div>
         </div>
       </div>
-      <div class="foot"><span>${esc(s.project.title)}</span><span>Private &amp; Confidential</span></div>
     </div>
   </section>`;
 }
 
-function categorySlide(category: string, workstream: string, section: ReportSection | null, items: ActionItem[]): string {
+function categorySlide(category: string, section: ReportSection | null, items: ActionItem[]): string {
   // Use computeStatus consistently (date-aware) so pills + counts agree across the report.
   const withStatus = items.map((i) => ({ i, st: computeStatus(i) }));
   const sorted = [...withStatus].sort(
@@ -566,7 +567,7 @@ function categorySlide(category: string, workstream: string, section: ReportSect
     <div class="slide-inner">
       <div class="head">
         <div class="eyebrow" data-r="1">Deep dive</div>
-        <div class="title" data-r="1">${esc(workstream ? `${workstream} - ${category}` : category)} ${ragBadge(health)}</div>
+        <div class="title" data-r="1">${esc(category)} ${ragBadge(health)}</div>
         <p class="subtitle" data-r="2"><strong>${completed}/${total} complete</strong> · ${open} open · ${cp}% done</p>
       </div>
       <div class="body dd-body">
@@ -577,13 +578,12 @@ function categorySlide(category: string, workstream: string, section: ReportSect
         <div class="dd-narr" data-r="4">
           <div class="sowhat">
             <div class="sowhat-label">Status update</div>
-            ${progress || fallbackRollup || `<p class="muted">No narrative recorded for this category.</p>`}
+            ${progress || fallbackRollup || `<p class="muted">No update this week.</p>`}
           </div>
           ${next ? `<div class="narr-card"><div class="narr-label">Next steps</div>${next}</div>` : ""}
           ${needs ? `<div class="narr-callout"><div class="narr-label">Decisions / needs</div><p>${needs}</p></div>` : ""}
         </div>
       </div>
-      <div class="foot"><span>${esc(category)}</span><span>Private &amp; Confidential</span></div>
     </div>
   </section>`;
 }
@@ -600,11 +600,9 @@ export function buildHtmlReport(p: ReportPayload): string {
     categories = Array.from(new Set(p.items.map((i) => i.category).filter(Boolean)));
   }
   const itemsByCat = new Map<string, ActionItem[]>();
-  const wsByCat = new Map<string, string>();
   for (const i of p.items) {
     if (!itemsByCat.has(i.category)) itemsByCat.set(i.category, []);
     itemsByCat.get(i.category)!.push(i);
-    if (!wsByCat.has(i.category)) wsByCat.set(i.category, i.workstream);
   }
 
   const slides = [
@@ -612,7 +610,7 @@ export function buildHtmlReport(p: ReportPayload): string {
     glanceSlide(p),
     ...(p.items.length > 0 ? [timelineSlide(p)] : []),
     workstreamSlide(p),
-    ...categories.map((c) => categorySlide(c, wsByCat.get(c) || "", sectionByCat.get(c) || null, itemsByCat.get(c) || [])),
+    ...categories.map((c) => categorySlide(c, sectionByCat.get(c) || null, itemsByCat.get(c) || [])),
   ].join("\n");
 
   return `<!DOCTYPE html>
@@ -809,6 +807,12 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
 .donut-center b{font-family:var(--display);font-weight:600;font-size:48px;color:var(--navy-800);line-height:1;}
 .donut-center span{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--ink-faint);margin-top:5px;}
+.day1-strip{margin-top:auto;padding-top:18px;border-top:1px solid var(--rule);display:flex;align-items:flex-end;justify-content:space-between;gap:14px;}
+.day1-strip .d1k{display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal-700);}
+.day1-strip .d1v{display:block;font-family:var(--display);font-weight:600;font-size:24px;color:var(--navy-800);margin-top:3px;}
+.day1-strip .d1days{text-align:right;}
+.day1-strip .d1days b{font-family:var(--display);font-weight:600;font-size:28px;color:var(--navy-800);line-height:1;}
+.day1-strip .d1days span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-faint);margin-top:3px;}
 .donut-legend{flex:1;display:flex;flex-direction:column;gap:11px;min-width:0;}
 .lg-row{display:flex;align-items:center;gap:11px;font-size:14.5px;}
 .lg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0;}

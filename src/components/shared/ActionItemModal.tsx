@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ActionItem } from "@/types";
 import { STATUS_BG } from "@/lib/utils";
-import { computeStatus } from "@/lib/dashboard";
+import { computeStatus, timeBasedTarget } from "@/lib/dashboard";
 
 interface Props {
   item: ActionItem | null;
@@ -53,6 +53,8 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
         const dur = key === "duration" ? (value as number) : prev.duration;
         const end = new Date(start.getTime() + dur * 86400000);
         next.endDate = end.toISOString().split("T")[0];
+        // end date and the time-based target follow start/duration automatically
+        next.targetCompletionPct = timeBasedTarget({ startDate: next.startDate, endDate: next.endDate });
       }
       return next;
     });
@@ -66,11 +68,12 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
       if (pred) {
         const newStart = pred.endDate;
         const dur = form.duration;
-        const end = new Date(new Date(newStart).getTime() + dur * 86400000);
+        const endStr = new Date(new Date(newStart).getTime() + dur * 86400000).toISOString().split("T")[0];
         setForm((prev) => ({
           ...prev,
           startDate: newStart,
-          endDate: end.toISOString().split("T")[0],
+          endDate: endStr,
+          targetCompletionPct: timeBasedTarget({ startDate: newStart, endDate: endStr }),
         }));
       }
     }
@@ -96,7 +99,7 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
     setDeleting(false);
   }
 
-  const targetPct = Math.round(form.targetCompletionPct * 100);
+  const targetPct = Math.round(timeBasedTarget(form) * 100);
   const actualPct = Math.round(form.actualCompletionPct * 100);
 
   // Filter items for predecessor dropdown
@@ -204,12 +207,14 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
                 min={0}
               />
             </Field>
-            <Field label="End Date">
+            <Field label="End Date (auto)">
               <input
                 type="date"
                 value={form.endDate}
-                onChange={(e) => update("endDate", e.target.value)}
-                className="input"
+                readOnly
+                disabled
+                title="Calculated from start date + duration"
+                className="input bg-slate-100 text-slate-500 cursor-not-allowed"
               />
             </Field>
           </div>

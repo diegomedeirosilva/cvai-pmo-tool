@@ -4,6 +4,7 @@ import { ActionItem, Dependency, Project } from "@/types";
 import { STATUS_COLORS, formatDate, formatPct } from "@/lib/utils";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 import { computeCascade } from "@/lib/cascade";
+import { timeBasedTarget } from "@/lib/dashboard";
 
 interface Props {
   items: ActionItem[];
@@ -186,7 +187,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
         const st = item.actualCompletionPct >= 1.0 ? "Completed"
           : new Date(item.endDate) < today ? "Overdue"
           : item.actualCompletionPct === 0 && new Date(item.startDate) >= today ? "Not Started"
-          : item.actualCompletionPct < item.targetCompletionPct ? "At-risk"
+          : item.actualCompletionPct < timeBasedTarget(item, today) ? "At-risk"
           : "On-track";
         if (st === "Overdue") nOverdue++;
         else if (st === "At-risk") nAtRisk++;
@@ -262,7 +263,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
     return item.actualCompletionPct >= 1.0 ? "Completed"
       : new Date(item.endDate) < today ? "Overdue"
       : item.actualCompletionPct === 0 && new Date(item.startDate) >= today ? "Not Started"
-      : item.actualCompletionPct < item.targetCompletionPct ? "At-risk"
+      : item.actualCompletionPct < timeBasedTarget(item, today) ? "At-risk"
       : "On-track";
   }
 
@@ -825,7 +826,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                   <p><span className="text-slate-400">Status:</span> {tooltip.item.status}</p>
                   <p><span className="text-slate-400">Dates:</span> {formatDate(tooltip.item.startDate)} → {formatDate(tooltip.item.endDate)}</p>
                   <p><span className="text-slate-400">Actual:</span> {formatPct(tooltip.item.actualCompletionPct)}</p>
-                  <p><span className="text-slate-400">Target:</span> {formatPct(tooltip.item.targetCompletionPct)}</p>
+                  <p><span className="text-slate-400">Target:</span> {formatPct(timeBasedTarget(tooltip.item))}</p>
                   {tooltip.item.baselineEndDate && tooltip.item.baselineEndDate !== tooltip.item.endDate && (
                     <p className="text-amber-600 mt-1 border-t border-slate-100 pt-1">
                       Original end: {formatDate(tooltip.item.baselineEndDate)} — slipped {Math.round((new Date(tooltip.item.endDate).getTime() - new Date(tooltip.item.baselineEndDate).getTime()) / 86400000)}d

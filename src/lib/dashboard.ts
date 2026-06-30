@@ -2,21 +2,38 @@ import { ActionItem, DashboardSummary, WorkstreamHealth, Project, Risk, OwnerSta
 import { differenceInCalendarDays } from "date-fns";
 
 /**
+ * Time-based target completion: the share of the planned timeline (start → end) that has
+ * elapsed as of `asOfDate` (today by default). This is the "expected" completion right now,
+ * and it always reflects the CURRENT dates — so it updates automatically when the timeline
+ * (start date / duration / end date) changes.
+ */
+export function timeBasedTarget(item: { startDate: string; endDate: string }, asOfDate?: Date): number {
+  const today = asOfDate ? new Date(asOfDate) : new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(item.startDate); start.setHours(0, 0, 0, 0);
+  const end = new Date(item.endDate); end.setHours(0, 0, 0, 0);
+  const span = end.getTime() - start.getTime();
+  if (!isFinite(span) || span <= 0) return today.getTime() >= end.getTime() ? 1 : 0;
+  const elapsed = today.getTime() - start.getTime();
+  return Math.max(0, Math.min(1, elapsed / span));
+}
+
+/**
  * Compute status automatically from dates and completion percentages.
  * - Completed: actualCompletionPct >= 1.0
  * - Overdue: end date is in the past and not completed
  * - Not Started: actualCompletionPct === 0 and start date is today or in the future
- * - At-risk: actual completion is behind target (any stage)
+ * - At-risk: actual completion is behind the time-based target (computed live from the dates)
  * - On-track: everything else
  */
-export function computeStatus(item: { startDate: string; endDate: string; actualCompletionPct: number; targetCompletionPct: number }, asOfDate?: Date): Status {
+export function computeStatus(item: { startDate: string; endDate: string; actualCompletionPct: number; targetCompletionPct?: number }, asOfDate?: Date): Status {
   const today = asOfDate ? new Date(asOfDate) : new Date();
   today.setHours(0, 0, 0, 0);
 
   if (item.actualCompletionPct >= 1.0) return "Completed";
   if (new Date(item.endDate) < today) return "Overdue";
   if (item.actualCompletionPct === 0 && new Date(item.startDate) >= today) return "Not Started";
-  if (item.actualCompletionPct < item.targetCompletionPct) return "At-risk";
+  if (item.actualCompletionPct < timeBasedTarget(item, asOfDate)) return "At-risk";
   return "On-track";
 }
 

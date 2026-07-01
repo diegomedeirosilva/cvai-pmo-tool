@@ -222,10 +222,11 @@ export async function exportAnalytics(
   const wsMap = new Map<string, Record<string, number>>();
   for (const item of items) {
     if (!wsMap.has(item.workstream)) {
-      wsMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
+      wsMap.set(item.workstream, { total: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0, sumPct: 0 });
     }
     const w = wsMap.get(item.workstream)!;
     w.total++;
+    w.sumPct += item.actualCompletionPct || 0;
     const status = computeStatus(item);
     if (status === "Completed") w.completed++;
     else if (status === "On-track") w.onTrack++;
@@ -234,7 +235,7 @@ export async function exportAnalytics(
   }
   for (const [ws, c] of wsMap) {
     wsSheet.addRow([ws, c.total, c.completed, c.onTrack, c.atRisk, c.overdue,
-      c.total > 0 ? Math.round((c.completed / c.total) * 100) + "%" : "0%"]);
+      c.total > 0 ? Math.round((c.sumPct / c.total) * 100) + "%" : "0%"]);
   }
 
   // === Sheet 3: Summary by Owner ===

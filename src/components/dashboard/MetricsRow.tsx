@@ -36,8 +36,8 @@ export default function MetricsRow({ total, notStarted, completed, onTrack, atRi
       <div className="grid grid-cols-3 gap-2">
         <Metric label="Total Items" value={total} color="text-slate-700" bg="bg-slate-50" />
         <Metric label="Not Started" value={notStarted} pct={total ? (notStarted / total) * 100 : 0} color="text-slate-500" bg="bg-slate-50" />
-        <Metric label="Completed" value={completed} pct={total ? (completed / total) * 100 : 0} color="text-green-600" bg="bg-green-50" />
-        <Metric label="On-track" value={onTrack} pct={total ? (onTrack / total) * 100 : 0} color="text-blue-600" bg="bg-blue-50" />
+        <Metric label="Completed" value={completed} pct={total ? (completed / total) * 100 : 0} color="text-blue-600" bg="bg-blue-50" />
+        <Metric label="On-track" value={onTrack} pct={total ? (onTrack / total) * 100 : 0} color="text-green-600" bg="bg-green-50" />
         <Metric label="At-risk" value={atRisk} pct={total ? (atRisk / total) * 100 : 0} color="text-amber-600" bg="bg-amber-50" />
         <Metric label="Overdue" value={overdue} pct={total ? (overdue / total) * 100 : 0} color="text-red-600" bg="bg-red-50" />
       </div>

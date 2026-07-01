@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActionItem, OwnerStats } from "@/types";
 import { STATUS_COLORS, formatDate } from "@/lib/utils";
-import { computeStatus } from "@/lib/dashboard";
+import { averageCompletion, computeGroupStatus, computeStatus } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
 interface Props {
@@ -51,7 +51,8 @@ export default function OwnerView({ ownerStats }: Props) {
       <div className="space-y-3">
         {sorted.map((owner) => {
           const isExpanded = expandedOwner === owner.owner;
-          const completionPct = owner.total > 0 ? (owner.completed / owner.total) * 100 : 0;
+          const completionPct = averageCompletion(owner.items) * 100;
+          const ownerColor = STATUS_COLORS[computeGroupStatus(owner.items)];
 
           return (
             <div key={owner.owner} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -86,8 +87,8 @@ export default function OwnerView({ ownerStats }: Props) {
                   <div className="flex items-center gap-2 mt-1.5">
                     <div className="flex-1 bg-slate-100 rounded-full h-1.5 max-w-xs">
                       <div
-                        className="h-1.5 rounded-full bg-green-500 transition-all"
-                        style={{ width: `${completionPct}%` }}
+                        className="h-1.5 rounded-full transition-all"
+                        style={{ width: `${completionPct}%`, backgroundColor: ownerColor }}
                       />
                     </div>
                     <span className="text-xs text-slate-400">{Math.round(completionPct)}% done</span>
@@ -98,8 +99,8 @@ export default function OwnerView({ ownerStats }: Props) {
                 <div className="flex items-center gap-5 text-center flex-shrink-0">
                   <Stat label="Total" value={owner.total} color="text-slate-700" />
                   <Stat label="Not Started" value={owner.notStarted} color="text-slate-400" />
-                  <Stat label="Done" value={owner.completed} color="text-green-600" />
-                  <Stat label="On-track" value={owner.onTrack} color="text-blue-600" />
+                  <Stat label="Done" value={owner.completed} color="text-blue-600" />
+                  <Stat label="On-track" value={owner.onTrack} color="text-green-600" />
                   <Stat label="Due 7d" value={owner.dueSoon7} color="text-amber-600" />
                   <Stat label="Due 14d" value={owner.dueSoon14} color="text-slate-500" />
                 </div>

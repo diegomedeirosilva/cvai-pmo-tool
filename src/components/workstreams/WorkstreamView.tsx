@@ -1,8 +1,8 @@
 "use client";
 import { useState, useMemo } from "react";
 import { ActionItem, Dependency } from "@/types";
-import { STATUS_COLORS, formatDate, HEALTH_COLORS, HEALTH_LABELS } from "@/lib/utils";
-import { computeHealth, computeStatus, timeBasedTarget } from "@/lib/dashboard";
+import { STATUS_COLORS, formatDate } from "@/lib/utils";
+import { averageCompletion, computeGroupStatus, computeStatus, timeBasedTarget } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
 interface CategorySummaryRow {
@@ -41,9 +41,9 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const health = computeHealth(stats.total, stats.completed, stats.overdue, stats.atRisk);
-  const healthColor = HEALTH_COLORS[health];
-  const completionPct = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
+  const wsStatus = computeGroupStatus(items);
+  const statusColor = STATUS_COLORS[wsStatus];
+  const completionPct = averageCompletion(items) * 100;
 
   // Group items by category
   const categories = new Map<string, ActionItem[]>();
@@ -131,10 +131,10 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
           <div className="flex items-center gap-3 mt-2">
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-              style={{ backgroundColor: healthColor + "20", color: healthColor }}
+              style={{ backgroundColor: statusColor + "20", color: statusColor }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: healthColor }} />
-              {HEALTH_LABELS[health] || health}
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: statusColor }} />
+              {wsStatus}
             </span>
             <span className="text-sm text-slate-500">
               {stats.completed}/{stats.total} completed · {stats.overdue} overdue
@@ -145,7 +145,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
             <div className="w-48 bg-slate-100 rounded-full h-2">
               <div
                 className="h-2 rounded-full transition-all"
-                style={{ width: `${completionPct}%`, backgroundColor: healthColor }}
+                style={{ width: `${completionPct}%`, backgroundColor: statusColor }}
               />
             </div>
             <span className="text-sm text-slate-500">{Math.round(completionPct)}%</span>
@@ -155,8 +155,8 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
         {/* Stats pills */}
         <div className="flex gap-2 flex-wrap justify-end">
           <StatPill label="Not Started" value={stats.notStarted} color="text-slate-500" bg="bg-slate-50" />
-          <StatPill label="Completed" value={stats.completed} color="text-green-600" bg="bg-green-50" />
-          <StatPill label="On-track" value={stats.onTrack} color="text-blue-600" bg="bg-blue-50" />
+          <StatPill label="Completed" value={stats.completed} color="text-blue-600" bg="bg-blue-50" />
+          <StatPill label="On-track" value={stats.onTrack} color="text-green-600" bg="bg-green-50" />
           <StatPill label="At-risk" value={stats.atRisk} color="text-amber-600" bg="bg-amber-50" />
           <StatPill label="Overdue" value={stats.overdue} color="text-red-600" bg="bg-red-50" />
         </div>
@@ -167,7 +167,8 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
         {Array.from(categories.entries()).map(([category, catItems]) => {
           const catSummary = categorySummaries.find((cs) => cs.category === category);
           const catCompleted = catItems.filter((i) => computeStatus(i) === "Completed").length;
-          const catPct = catItems.length > 0 ? (catCompleted / catItems.length) * 100 : 0;
+          const catPct = averageCompletion(catItems) * 100;
+          const catColor = STATUS_COLORS[computeGroupStatus(catItems)];
 
           return (
             <div key={category} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -185,8 +186,8 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                 <div className="flex items-center gap-3">
                   <div className="w-24 bg-slate-200 rounded-full h-1.5">
                     <div
-                      className="h-1.5 rounded-full bg-blue-500"
-                      style={{ width: `${catPct}%` }}
+                      className="h-1.5 rounded-full"
+                      style={{ width: `${catPct}%`, backgroundColor: catColor }}
                     />
                   </div>
                   <span className="text-xs text-slate-500">{catCompleted}/{catItems.length}</span>

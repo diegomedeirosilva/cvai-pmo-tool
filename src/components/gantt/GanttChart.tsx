@@ -1,10 +1,10 @@
 "use client";
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { ActionItem, Dependency, Project } from "@/types";
+import { ActionItem, Dependency, Project, Status } from "@/types";
 import { STATUS_COLORS, formatDate, formatPct } from "@/lib/utils";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 import { computeCascade } from "@/lib/cascade";
-import { timeBasedTarget } from "@/lib/dashboard";
+import { rollupStatus, timeBasedTarget } from "@/lib/dashboard";
 
 interface Props {
   items: ActionItem[];
@@ -173,12 +173,12 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
 
   // Group date ranges for summary bars when collapsed
   const groupStats = useMemo(() => {
-    const stats = new Map<string, { minStart: string; maxEnd: string; completedPct: number; completed: number; total: number; status: string; overdue: boolean }>();
+    const stats = new Map<string, { minStart: string; maxEnd: string; completedPct: number; completed: number; total: number; groupStatus: Status; overdue: boolean }>();
     for (const group of groupedItems) {
       if (group.items.length === 0) continue;
       let minStart = group.items[0].startDate;
       let maxEnd = group.items[0].endDate;
-      let completed = 0, nOverdue = 0, nAtRisk = 0, nOnTrack = 0, nNotStarted = 0;
+      let completed = 0, nOverdue = 0, nAtRisk = 0, nOnTrack = 0;
       for (const item of group.items) {
         if (item.startDate < minStart) minStart = item.startDate;
         if (item.endDate > maxEnd) maxEnd = item.endDate;
@@ -192,16 +192,15 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
         if (st === "Overdue") nOverdue++;
         else if (st === "At-risk") nAtRisk++;
         else if (st === "On-track") nOnTrack++;
-        else if (st === "Not Started") nNotStarted++;
       }
-      const status = nOverdue ? "Overdue" : nAtRisk ? "At-risk" : nOnTrack ? "On-track" : nNotStarted ? "Not Started" : "Completed";
+      const groupStatus = rollupStatus({ total: group.items.length, overdue: nOverdue, atRisk: nAtRisk, onTrack: nOnTrack, completed });
       stats.set(group.label, {
         minStart,
         maxEnd,
         completedPct: completed / group.items.length,
         completed,
         total: group.items.length,
-        status,
+        groupStatus,
         overdue: nOverdue > 0,
       });
     }
@@ -764,7 +763,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                 const endX = dateToX(stats.maxEnd);
                 const width = Math.max(endX - x, 4);
                 const y = HEADER_HEIGHT + idx * ROW_HEIGHT + BAR_PADDING;
-                const groupColor = STATUS_COLORS[stats.status] || STATUS_COLORS["On-track"];
+                const groupColor = STATUS_COLORS[stats.groupStatus] || STATUS_COLORS["On-track"];
                 // Solid status color to the planned end; overdue slip → red hatch out to today.
                 const overrunW = stats.overdue && todayX > endX ? todayX - endX : 0;
 

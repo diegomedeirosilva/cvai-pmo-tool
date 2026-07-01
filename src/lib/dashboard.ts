@@ -19,6 +19,18 @@ export function timeBasedTarget(item: { startDate: string; endDate: string }, as
 }
 
 /**
+ * Average completion for a group of items: the plain mean of each item's
+ * actualCompletionPct (0–1). This is what every "progress" bar/% shows for a
+ * workstream / category / owner — partial work counts, so an item that's 90%
+ * done contributes 0.9 rather than 0. Empty group → 0.
+ */
+export function averageCompletion(items: { actualCompletionPct: number }[]): number {
+  if (items.length === 0) return 0;
+  const sum = items.reduce((acc, i) => acc + (i.actualCompletionPct || 0), 0);
+  return sum / items.length;
+}
+
+/**
  * Compute status automatically from dates and completion percentages.
  * - Completed: actualCompletionPct >= 1.0
  * - Overdue: end date is in the past and not completed
@@ -37,6 +49,37 @@ export function computeStatus(item: { startDate: string; endDate: string; actual
   return "On-track";
 }
 
+/**
+ * Roll a group of items up to a single status, used for the group's bar/pill
+ * colour: any overdue → Overdue, else any at-risk → At-risk, else all complete
+ * → Completed, else any progress underway → On-track (in progress), else Not
+ * Started. Reserves "Completed" for fully-done groups so it maps to blue.
+ */
+export function rollupStatus(c: { total: number; overdue: number; atRisk: number; onTrack: number; completed: number }): Status {
+  if (c.total === 0) return "Not Started";
+  if (c.overdue > 0) return "Overdue";
+  if (c.atRisk > 0) return "At-risk";
+  if (c.completed === c.total) return "Completed";
+  if (c.onTrack > 0 || c.completed > 0) return "On-track";
+  return "Not Started";
+}
+
+export function computeGroupStatus(
+  items: { startDate: string; endDate: string; actualCompletionPct: number }[],
+  asOfDate?: Date
+): Status {
+  const c = { total: items.length, overdue: 0, atRisk: 0, onTrack: 0, completed: 0 };
+  for (const it of items) {
+    switch (computeStatus(it, asOfDate)) {
+      case "Overdue": c.overdue++; break;
+      case "At-risk": c.atRisk++; break;
+      case "On-track": c.onTrack++; break;
+      case "Completed": c.completed++; break;
+    }
+  }
+  return rollupStatus(c);
+}
+
 export function isOverdue(item: ActionItem): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -49,11 +92,12 @@ export function computeHealth(
   overdue: number,
   atRisk: number
 ): "Green" | "Amber" | "Red" {
+  // Traffic-light on urgency: a missed date is Red, anything merely behind
+  // schedule is Amber, everything else is Green. Deliberately NOT proportion-
+  // based — a single overdue item turns the whole group red.
   if (total === 0) return "Green";
-  const overduePct = overdue / total;
-  const atRiskPct = atRisk / total;
-  if (overduePct > 0.15 || atRiskPct > 0.15) return "Red";
-  if (overduePct > 0.05 || atRiskPct > 0.05) return "Amber";
+  if (overdue > 0) return "Red";
+  if (atRisk > 0) return "Amber";
   return "Green";
 }
 
@@ -70,7 +114,7 @@ export function buildDashboardSummary(
   let notStarted = 0, completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
   const workstreamMap = new Map<
     string,
-    { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }
+    { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number; sumPct: number }
   >();
 
   for (const item of items) {
@@ -86,10 +130,11 @@ export function buildDashboardSummary(
     }
 
     if (!workstreamMap.has(item.workstream)) {
-      workstreamMap.set(item.workstream, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
+      workstreamMap.set(item.workstream, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0, sumPct: 0 });
     }
     const ws = workstreamMap.get(item.workstream)!;
     ws.total++;
+    ws.sumPct += item.actualCompletionPct || 0;
     switch (status) {
       case "Not Started": ws.notStarted++; break;
       case "Completed": ws.completed++; break;
@@ -103,13 +148,14 @@ export function buildDashboardSummary(
     ([ws, counts]) => ({
       workstream: ws,
       health: computeHealth(counts.total, counts.completed, counts.overdue, counts.atRisk),
+      groupStatus: rollupStatus(counts),
       total: counts.total,
       notStarted: counts.notStarted,
       completed: counts.completed,
       onTrack: counts.onTrack,
       atRisk: counts.atRisk,
       overdue: counts.overdue,
-      completionPct: counts.total > 0 ? counts.completed / counts.total : 0,
+      completionPct: counts.total > 0 ? counts.sumPct / counts.total : 0,
     })
   );
 

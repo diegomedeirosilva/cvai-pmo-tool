@@ -7,7 +7,7 @@ import {
   ComposedChart, Area, CartesianGrid, XAxis, YAxis, Legend,
 } from "recharts";
 import { HEALTH_COLORS, HEALTH_LABELS, formatDate } from "@/lib/utils";
-import { computeStatus, computeHealth } from "@/lib/dashboard";
+import { computeStatus, computeHealth, rollupStatus } from "@/lib/dashboard";
 import WorkstreamHealthTable from "./WorkstreamHealthTable";
 import MilestonesCard from "./MilestonesCard";
 import AttentionCard from "./AttentionCard";
@@ -66,11 +66,12 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
       })
       .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
-    const wsMap = new Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }>();
+    const wsMap = new Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number; sumPct: number }>();
     for (const item of allItems) {
-      if (!wsMap.has(item.workstream)) wsMap.set(item.workstream, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
+      if (!wsMap.has(item.workstream)) wsMap.set(item.workstream, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0, sumPct: 0 });
       const ws = wsMap.get(item.workstream)!;
       ws.total++;
+      ws.sumPct += item.actualCompletionPct || 0;
       const s = computeStatus(item);
       switch (s) {
         case "Not Started": ws.notStarted++; break;
@@ -83,8 +84,9 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
     const workstreamHealth = Array.from(wsMap.entries()).map(([ws, c]) => ({
       workstream: ws,
       health: computeHealth(c.total, c.completed, c.overdue, c.atRisk),
+      groupStatus: rollupStatus(c),
       total: c.total, notStarted: c.notStarted, completed: c.completed, onTrack: c.onTrack, atRisk: c.atRisk, overdue: c.overdue,
-      completionPct: c.total > 0 ? c.completed / c.total : 0,
+      completionPct: c.total > 0 ? c.sumPct / c.total : 0,
     }));
 
     return { total, notStarted, completed, onTrack, atRisk, overdue, health, milestones, workstreamHealth };
@@ -133,8 +135,8 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
   const { total, notStarted, completed, onTrack, atRisk, overdue } = liveStats;
   const pieData = [
     { name: "Not Started", value: notStarted, color: "#94A3B8" },
-    { name: "Completed", value: completed, color: "#22C55E" },
-    { name: "On-track", value: onTrack, color: "#3B82F6" },
+    { name: "Completed", value: completed, color: "#3B82F6" },
+    { name: "On-track", value: onTrack, color: "#22C55E" },
     { name: "At-risk", value: atRisk, color: "#F59E0B" },
     { name: "Overdue", value: overdue, color: "#EF4444" },
   ].filter((d) => d.value > 0);
@@ -242,8 +244,8 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
             <div className="flex items-center justify-between mt-2 gap-1">
               {[
                 { label: "Not Started", value: notStarted, color: "#94A3B8" },
-                { label: "Done", value: completed, color: "#22C55E" },
-                { label: "On-track", value: onTrack, color: "#3B82F6" },
+                { label: "Done", value: completed, color: "#3B82F6" },
+                { label: "On-track", value: onTrack, color: "#22C55E" },
                 { label: "At-risk", value: atRisk, color: "#F59E0B" },
                 { label: "Overdue", value: overdue, color: "#EF4444" },
               ].map(({ label, value, color }) => (
@@ -291,8 +293,8 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {/* Stacked areas: bottom → top: Completed, On-track, At-risk, Overdue, Not Started */}
-              <Area type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
-              <Area type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
+              <Area type="monotone" dataKey="completed" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="Completed" />
+              <Area type="monotone" dataKey="onTrack" stackId="1" fill="#22C55E" stroke="#22C55E" name="On-track" />
               <Area type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
               <Area type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />
               <Area type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />

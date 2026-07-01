@@ -1,9 +1,9 @@
 "use client";
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { WorkstreamHealth, ActionItem } from "@/types";
-import { HEALTH_COLORS } from "@/lib/utils";
-import { computeStatus, computeHealth } from "@/lib/dashboard";
+import { WorkstreamHealth, ActionItem, Status } from "@/types";
+import { STATUS_COLORS } from "@/lib/utils";
+import { computeStatus, rollupStatus } from "@/lib/dashboard";
 
 interface CategoryHealth {
   category: string;
@@ -13,7 +13,8 @@ interface CategoryHealth {
   onTrack: number;
   atRisk: number;
   overdue: number;
-  health: "Green" | "Amber" | "Red";
+  completionPct: number;
+  groupStatus: Status;
 }
 
 interface Props {
@@ -27,7 +28,7 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
   const categoryMap = useMemo(() => {
     const map = new Map<string, CategoryHealth[]>();
 
-    const wsCategories = new Map<string, Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number }>>();
+    const wsCategories = new Map<string, Map<string, { total: number; notStarted: number; completed: number; onTrack: number; atRisk: number; overdue: number; sumPct: number }>>();
 
     for (const item of items) {
       if (!wsCategories.has(item.workstream)) {
@@ -35,10 +36,11 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
       }
       const cats = wsCategories.get(item.workstream)!;
       if (!cats.has(item.category)) {
-        cats.set(item.category, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0 });
+        cats.set(item.category, { total: 0, notStarted: 0, completed: 0, onTrack: 0, atRisk: 0, overdue: 0, sumPct: 0 });
       }
       const c = cats.get(item.category)!;
       c.total++;
+      c.sumPct += item.actualCompletionPct || 0;
       const status = computeStatus(item);
       switch (status) {
         case "Not Started": c.notStarted++; break;
@@ -55,7 +57,8 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
         catHealthArr.push({
           category: cat,
           ...counts,
-          health: computeHealth(counts.total, counts.completed, counts.overdue, counts.atRisk),
+          completionPct: counts.total > 0 ? counts.sumPct / counts.total : 0,
+          groupStatus: rollupStatus(counts),
         });
       }
       map.set(ws, catHealthArr);
@@ -82,8 +85,8 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
         </thead>
         <tbody>
           {workstreams.map((ws) => {
-            const pct = ws.total > 0 ? (ws.completed / ws.total) * 100 : 0;
-            const color = HEALTH_COLORS[ws.health];
+            const pct = (ws.completionPct || 0) * 100;
+            const color = STATUS_COLORS[ws.groupStatus];
             const isExpanded = expandedWs === ws.workstream;
             const categories = categoryMap.get(ws.workstream) || [];
 
@@ -123,14 +126,14 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                       <span className="text-xs text-slate-500 w-8 text-right">{Math.round(pct)}%</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 text-center text-sm text-green-600 font-semibold tabular-nums">{ws.completed}</td>
-                  <td className="px-3 py-2.5 text-center text-sm text-blue-600 font-semibold tabular-nums">{ws.onTrack}</td>
+                  <td className="px-3 py-2.5 text-center text-sm text-blue-600 font-semibold tabular-nums">{ws.completed}</td>
+                  <td className="px-3 py-2.5 text-center text-sm text-green-600 font-semibold tabular-nums">{ws.onTrack}</td>
                   <td className="px-3 py-2.5 text-center text-sm text-amber-600 font-semibold tabular-nums">{ws.atRisk || "—"}</td>
                   <td className="px-3 py-2.5 text-center text-sm text-red-600 font-semibold tabular-nums">{ws.overdue || "—"}</td>
                 </tr>
                 {isExpanded && categories.map((cat) => {
-                  const catPct = cat.total > 0 ? (cat.completed / cat.total) * 100 : 0;
-                  const catColor = HEALTH_COLORS[cat.health];
+                  const catPct = (cat.completionPct || 0) * 100;
+                  const catColor = STATUS_COLORS[cat.groupStatus];
                   return (
                     <tr key={`${ws.workstream}-${cat.category}`} className="border-t border-slate-50 bg-slate-50/60">
                       <td className="pl-10 pr-4 py-2">
@@ -148,8 +151,8 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
                           <span className="text-xs text-slate-500 w-8 text-right">{Math.round(catPct)}%</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-center text-sm text-green-600 tabular-nums">{cat.completed}</td>
-                      <td className="px-3 py-2 text-center text-sm text-blue-600 tabular-nums">{cat.onTrack}</td>
+                      <td className="px-3 py-2 text-center text-sm text-blue-600 tabular-nums">{cat.completed}</td>
+                      <td className="px-3 py-2 text-center text-sm text-green-600 tabular-nums">{cat.onTrack}</td>
                       <td className="px-3 py-2 text-center text-sm text-amber-600 tabular-nums">{cat.atRisk || "—"}</td>
                       <td className="px-3 py-2 text-center text-sm text-red-600 tabular-nums">{cat.overdue || "—"}</td>
                     </tr>

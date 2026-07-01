@@ -19,18 +19,20 @@ export function formatPct(val: number): string {
   return Math.round(val * 100) + "%";
 }
 
+// Status palette. Note: Completed = BLUE and On-track = GREEN (green reads as
+// "actively on track / healthy"; blue is reserved for finished work).
 export const STATUS_COLORS: Record<string, string> = {
   "Not Started": "#94A3B8",
-  "Completed": "#22C55E",
-  "On-track": "#3B82F6",
+  "Completed": "#3B82F6",
+  "On-track": "#22C55E",
   "At-risk": "#F59E0B",
   "Overdue": "#EF4444",
 };
 
 export const STATUS_BG: Record<string, string> = {
   "Not Started": "bg-slate-100 text-slate-600",
-  "Completed": "bg-green-100 text-green-700",
-  "On-track": "bg-blue-100 text-blue-700",
+  "Completed": "bg-blue-100 text-blue-700",
+  "On-track": "bg-green-100 text-green-700",
   "At-risk": "bg-amber-100 text-amber-700",
   "Overdue": "bg-red-100 text-red-700",
 };

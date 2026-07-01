@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import { ActionItem, Dependency, Project } from "@/types";
-import { STATUS_COLORS, formatDate, formatPct } from "@/lib/utils";
+import { STATUS_COLORS, STATUS_BG, formatDate, formatPct } from "@/lib/utils";
 import { computeStatus } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
@@ -376,12 +376,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
                       </td>
                       <td className="px-3 py-2 text-slate-600">{item.owner}</td>
                       <td className="px-3 py-2">
-                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                          tableStatus === "Overdue" ? "bg-red-100 text-red-700" :
-                          tableStatus === "At-risk" ? "bg-amber-100 text-amber-700" :
-                          tableStatus === "Completed" ? "bg-green-100 text-green-700" :
-                          "bg-blue-100 text-blue-700"
-                        }`}>
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_BG[tableStatus] || "bg-slate-100 text-slate-600"}`}>
                           {tableStatus}
                         </span>
                       </td>

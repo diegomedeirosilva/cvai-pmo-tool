@@ -1,5 +1,5 @@
 import { DashboardSummary, Risk, ActionItem } from "@/types";
-import { computeStatus, computeHealth } from "@/lib/dashboard";
+import { computeStatus, rollupStatus, computeGroupStatus, averageCompletion } from "@/lib/dashboard";
 
 // ---- Input shape -----------------------------------------------------------
 
@@ -25,8 +25,8 @@ export interface ReportPayload {
 
 const STATUS_COLOR: Record<string, string> = {
   "Not Started": "#94A3B8",
-  Completed: "#22C55E",
-  "On-track": "#3B82F6",
+  Completed: "#3B82F6",
+  "On-track": "#22C55E",
   "At-risk": "#F59E0B",
   Overdue: "#EF4444",
 };
@@ -76,9 +76,9 @@ function statusPill(status: string): string {
   const c = STATUS_COLOR[status] || "#94A3B8";
   return `<span class="pill" style="color:${c};background:${c}1A;"><span class="pdot" style="background:${c}"></span>${esc(status)}</span>`;
 }
-function ragBadge(health: string): string {
-  const r = RAG[health] || RAG.Green;
-  return `<span class="rag"><span class="ragdot" style="background:${r.color}"></span>${r.label}</span>`;
+function statusBadge(status: string): string {
+  const color = STATUS_COLOR[status] || "#94A3B8";
+  return `<span class="rag"><span class="ragdot" style="background:${color}"></span>${status}</span>`;
 }
 function progressBar(p: number, color = "#1FC6B8"): string {
   const w = Math.max(0, Math.min(100, p));
@@ -222,7 +222,7 @@ function attentionItems(items: ActionItem[]) {
 
 function glanceSlide(p: ReportPayload): string {
   const s = p.summary;
-  const complete = s.totalItems > 0 ? Math.round((s.completed / s.totalItems) * 100) : 0;
+  const complete = Math.round(averageCompletion(p.items) * 100);
   const r = RAG[s.overallHealth] || RAG.Green;
 
   const segs = [
@@ -312,8 +312,8 @@ function catStats(items: ActionItem[]) {
   const total = items.length;
   return {
     total, completed, overdue, atRisk, onTrack, notStarted,
-    health: computeHealth(total, completed, overdue, atRisk),
-    completionPct: total > 0 ? completed / total : 0,
+    groupStatus: rollupStatus({ total, overdue, atRisk, onTrack, completed }),
+    completionPct: averageCompletion(items),
   };
 }
 
@@ -331,7 +331,7 @@ function workstreamSlide(p: ReportPayload): string {
 
   const wbars = s.workstreamHealth
     .map((w, idx) => {
-      const r = RAG[w.health] || RAG.Green;
+      const scol = STATUS_COLOR[w.groupStatus] || "#94A3B8";
       const cp = pct(w.completionPct);
       const flags =
         (w.overdue ? `<span class="wflag" style="color:#EF4444">${w.overdue} overdue</span>` : "") +
@@ -339,12 +339,12 @@ function workstreamSlide(p: ReportPayload): string {
       return `
       <button class="wbar${idx === 0 ? " active" : ""}" data-ws="${idx}">
         <div class="wbar-top">
-          <span class="ragdot" style="background:${r.color}"></span>
+          <span class="ragdot" style="background:${scol}"></span>
           <span class="wbar-name">${esc(w.workstream)}</span>
           <span class="wbar-pct">${cp}%</span>
           <span class="wbar-caret">›</span>
         </div>
-        <div class="bar"><div class="bar-fill" style="width:${cp}%;background:${r.color}"></div></div>
+        <div class="bar"><div class="bar-fill" style="width:${cp}%;background:${scol}"></div></div>
         <div class="wbar-foot"><span>${w.completed}/${w.total} complete</span><span class="wflags">${flags}</span></div>
       </button>`;
     })
@@ -357,7 +357,7 @@ function workstreamSlide(p: ReportPayload): string {
       const cards = Array.from(cm.entries())
         .map(([cat, items]) => {
           const st = catStats(items);
-          const rc = (RAG[st.health] || RAG.Green).color;
+          const rc = STATUS_COLOR[st.groupStatus] || "#94A3B8";
           const cp = Math.round(st.completionPct * 100);
           const flags =
             (st.overdue ? `<span class="wflag" style="color:#EF4444">${st.overdue} overdue</span>` : "") +
@@ -438,7 +438,7 @@ function timelineSlide(p: ReportPayload): string {
     .map(({ ws, cat, items, span }) => {
       const sp = span!;
       const gst = groupStatus(items);
-      const color = STATUS_COLOR[gst] || "#94A3B8";
+      const color = STATUS_COLOR[computeGroupStatus(items)] || "#94A3B8";
       const cx = clampX(msToX(sp.minStart, sc), sc);
       const plannedEndX = clampX(msToX(sp.maxEnd, sc), sc);
       const cw = Math.max(plannedEndX - cx, 4);
@@ -488,7 +488,7 @@ function timelineSlide(p: ReportPayload): string {
     .join("");
 
   const legend =
-    [["Completed", "#22C55E"], ["On-track", "#3B82F6"], ["At-risk", "#F59E0B"], ["Overdue", "#EF4444"], ["Not started", "#94A3B8"]]
+    [["Completed", "#3B82F6"], ["On-track", "#22C55E"], ["At-risk", "#F59E0B"], ["Overdue", "#EF4444"], ["Not started", "#94A3B8"]]
       .map(([l, c]) => `<span class="gl-item"><span class="gl-sw" style="background:${c}"></span>${l}</span>`)
       .join("") +
     `<span class="gl-sep"></span><span class="gl-item"><span class="gl-hatch"></span>Overdue slip</span><span class="gl-item"><span class="gl-mark gl-today"></span>Today</span><span class="gl-item"><span class="gl-mark gl-day1"></span>Day-1</span>`;
@@ -526,8 +526,8 @@ function categorySlide(category: string, section: ReportSection | null, items: A
   const completed = withStatus.filter((x) => x.st === "Completed").length;
   const notStarted = withStatus.filter((x) => x.st === "Not Started").length;
   const open = total - completed - notStarted; // On-track + At-risk + Overdue
-  const cp = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const health = section?.health || "Green";
+  const cp = Math.round(averageCompletion(items) * 100);
+  const gstatus = computeGroupStatus(items);
 
   const taskRows =
     sorted.length > 0
@@ -559,7 +559,7 @@ function categorySlide(category: string, section: ReportSection | null, items: A
   const next = section ? bulletList(section.nextSteps, "b-next") : "";
   const needs = section && (section.needsFromClient || "").trim() ? esc(section.needsFromClient.replace(/^[-•]\s*/, "")) : "";
   const fallbackRollup = !section
-    ? `<ul class="bullets b-progress"><li>${completed}/${total} complete · ${(RAG[health] || RAG.Green).label.toLowerCase()}</li></ul>`
+    ? `<ul class="bullets b-progress"><li>${completed}/${total} complete · ${gstatus.toLowerCase()}</li></ul>`
     : "";
 
   return `
@@ -567,7 +567,7 @@ function categorySlide(category: string, section: ReportSection | null, items: A
     <div class="slide-inner">
       <div class="head">
         <div class="eyebrow" data-r="1">Deep dive</div>
-        <div class="title" data-r="1">${esc(category)} ${ragBadge(health)}</div>
+        <div class="title" data-r="1">${esc(category)} ${statusBadge(gstatus)}</div>
         <p class="subtitle" data-r="2"><strong>${completed}/${total} complete</strong> · ${open} open · ${cp}% done</p>
       </div>
       <div class="body dd-body">

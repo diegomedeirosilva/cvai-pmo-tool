@@ -82,6 +82,7 @@ export interface Upload {
 export interface WorkstreamHealth {
   workstream: string;
   health: "Green" | "Amber" | "Red";
+  groupStatus: Status;
   total: number;
   notStarted: number;
   completed: number;

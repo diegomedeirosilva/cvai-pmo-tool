@@ -149,8 +149,8 @@ export default function TrendsClient({ snapshots: initial }: Props) {
                 <Tooltip contentStyle={{ fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Area type="monotone" dataKey="notStarted" stackId="1" fill="#94A3B8" stroke="#94A3B8" name="Not Started" />
-                <Area type="monotone" dataKey="completed" stackId="1" fill="#22C55E" stroke="#22C55E" name="Completed" />
-                <Area type="monotone" dataKey="onTrack" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="On-track" />
+                <Area type="monotone" dataKey="completed" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="Completed" />
+                <Area type="monotone" dataKey="onTrack" stackId="1" fill="#22C55E" stroke="#22C55E" name="On-track" />
                 <Area type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
                 <Area type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />
               </AreaChart>

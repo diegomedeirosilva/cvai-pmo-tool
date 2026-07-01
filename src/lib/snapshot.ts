@@ -3,7 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { buildDashboardSummary } from "@/lib/dashboard";
 import { ActionItem, Project, Risk } from "@/types";
 
-export async function takeSnapshot(source: "manual" | "upload" | "cron") {
+export async function takeSnapshot(source: "manual" | "upload" | "cron" | "auto") {
   const projectRows = await db.select().from(projects).limit(1);
   if (projectRows.length === 0) return null;
 

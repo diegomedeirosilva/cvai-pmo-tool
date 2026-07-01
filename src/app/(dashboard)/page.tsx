@@ -1,6 +1,7 @@
-import { db, actionItems, projects, dependencies } from "@/lib/db";
-import { asc } from "drizzle-orm";
+import { db, actionItems, projects, dependencies, snapshots } from "@/lib/db";
+import { asc, desc } from "drizzle-orm";
 import { buildDashboardSummary } from "@/lib/dashboard";
+import { takeSnapshot } from "@/lib/snapshot";
 import { ActionItem, Project } from "@/types";
 import DashboardClient from "@/components/dashboard/DashboardClient";
 import EmptyState from "@/components/dashboard/EmptyState";
@@ -14,6 +15,25 @@ export default async function DashboardPage() {
 
     if (projectRows.length === 0) {
       return <EmptyState />;
+    }
+
+    // Weekly trend snapshot (usage-driven): record a point if the newest one is
+    // over a week old. History accumulates as the dashboard is used — no cron
+    // needed. Change the "7" to adjust the cadence.
+    try {
+      const [latest] = await db
+        .select({ d: snapshots.snapshotDate })
+        .from(snapshots)
+        .orderBy(desc(snapshots.snapshotDate))
+        .limit(1);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 7);
+      cutoff.setHours(0, 0, 0, 0);
+      if (!latest || new Date(latest.d + "T00:00:00") < cutoff) {
+        await takeSnapshot("auto");
+      }
+    } catch (e) {
+      console.error("Weekly snapshot check failed:", e);
     }
 
     const [items, deps] = await Promise.all([

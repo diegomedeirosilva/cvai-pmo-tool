@@ -30,7 +30,7 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
   // Sync allItems when server props change (e.g. after router.refresh())
   useEffect(() => { setAllItems(items); }, [items]);
 
-  // Fetch snapshots for the Status Distribution chart
+  // Fetch the recorded snapshots (historical points) for the trend chart.
   useEffect(() => {
     fetch("/api/snapshots")
       .then((r) => r.json())
@@ -118,19 +118,33 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
 
   // Status distribution chart data (oldest first)
   const chartData = useMemo(() => {
-    const sorted = [...snapshots].sort(
-      (a, b) => new Date(a.snapshotDate).getTime() - new Date(b.snapshotDate).getTime()
-    );
-    return sorted.map((s) => ({
-      date: formatDate(s.snapshotDate),
-      total: s.totalItems,
-      notStarted: s.notStarted,
-      completed: s.completed,
-      onTrack: s.onTrack,
-      atRisk: s.atRisk,
-      overdue: s.overdue,
-    }));
-  }, [snapshots]);
+    const today = new Date().toISOString().split("T")[0];
+    // Historical points from recorded snapshots (drop any stored "today" — we
+    // always append a live one below so the latest point reflects current data).
+    const rows = [...snapshots]
+      .filter((s) => s.snapshotDate !== today)
+      .sort((a, b) => new Date(a.snapshotDate).getTime() - new Date(b.snapshotDate).getTime())
+      .map((s) => ({
+        date: formatDate(s.snapshotDate),
+        total: s.totalItems,
+        notStarted: s.notStarted,
+        completed: s.completed,
+        onTrack: s.onTrack,
+        atRisk: s.atRisk,
+        overdue: s.overdue,
+      }));
+    // Live "today" point — updates instantly as items are edited and saved.
+    rows.push({
+      date: formatDate(today),
+      total: liveStats.total,
+      notStarted: liveStats.notStarted,
+      completed: liveStats.completed,
+      onTrack: liveStats.onTrack,
+      atRisk: liveStats.atRisk,
+      overdue: liveStats.overdue,
+    });
+    return rows;
+  }, [snapshots, liveStats]);
 
   const { total, notStarted, completed, onTrack, atRisk, overdue } = liveStats;
   const pieData = [
@@ -275,7 +289,7 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
         <h2 className="text-sm font-medium text-slate-700 mb-4">Status Distribution Over Time</h2>
         {chartData.length < 2 ? (
           <p className="text-xs text-slate-400 py-8 text-center">
-            Trend needs at least 2 snapshots. Visit the Trends page to take a snapshot.
+            Not enough history yet — trend points build up from Excel uploads. The latest point always reflects your current data.
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>

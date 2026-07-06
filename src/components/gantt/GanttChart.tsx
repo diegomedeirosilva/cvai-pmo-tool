@@ -275,11 +275,6 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
   const todayX = dateToXFromDate(today);
   const day1X = project ? dateToX(project.day1TargetDate) : null;
   const forecastX = projectedFinish ? dateToX(projectedFinish) : null;
-  // Only draw the forecast marker when the plan finishes AFTER Day-1 (a slip) —
-  // otherwise it coincides with / precedes the Day-1 line and just adds noise.
-  const showForecast =
-    projectedFinish != null && day1X != null && project != null &&
-    new Date(projectedFinish + "T00:00:00").getTime() > new Date(project.day1TargetDate + "T00:00:00").getTime();
 
   function statusOf(item: ActionItem): string {
     return item.actualCompletionPct >= 1.0 ? "Completed"
@@ -600,8 +595,12 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
             <span className="text-xs text-slate-500">Overdue slip</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 border-t-2 border-dashed" style={{ borderColor: "#EF4444" }} />
-            <span className="text-xs text-slate-500">Forecast finish</span>
+            <div className="w-3 border-t-2" style={{ borderColor: "#1E3A5F" }} />
+            <span className="text-xs text-slate-500">Projected Day-1</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 border-t-2 border-dotted" style={{ borderColor: "#94A3B8" }} />
+            <span className="text-xs text-slate-500">Target</span>
           </div>
         </div>
       </div>
@@ -831,14 +830,14 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
               <text x={todayX + 3} y={36} fill="#EF4444" fontSize={10} fontWeight="600">Today</text>
               {day1X !== null && (
                 <>
-                  <line x1={day1X} y1={0} x2={day1X} y2={totalHeight} stroke="#1E3A5F" strokeWidth={2} />
-                  <text x={day1X + 3} y={36} fill="#1E3A5F" fontSize={10} fontWeight="700">Day-1</text>
+                  <line x1={day1X} y1={0} x2={day1X} y2={totalHeight} stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="2,3" />
+                  <text x={day1X + 3} y={50} fill="#94A3B8" fontSize={10} fontWeight="600">Target</text>
                 </>
               )}
-              {showForecast && forecastX !== null && (
+              {forecastX !== null && (
                 <>
-                  <line x1={forecastX} y1={0} x2={forecastX} y2={totalHeight} stroke="#EF4444" strokeWidth={1.5} strokeDasharray="2,3" />
-                  <text x={forecastX + 3} y={50} fill="#EF4444" fontSize={10} fontWeight="700">Forecast</text>
+                  <line x1={forecastX} y1={0} x2={forecastX} y2={totalHeight} stroke="#1E3A5F" strokeWidth={2} />
+                  <text x={forecastX + 3} y={36} fill="#1E3A5F" fontSize={10} fontWeight="700">Day-1 (proj.)</text>
                 </>
               )}
             </svg>

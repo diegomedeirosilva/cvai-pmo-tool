@@ -279,7 +279,7 @@ function glanceSlide(p: ReportPayload): string {
       <div class="head">
         <div class="eyebrow" data-r="1">Executive summary</div>
         <div class="title" data-r="1">Status at a glance</div>
-        <p class="subtitle" data-r="2">Overall completion <strong>${complete}%</strong> · ${s.workstreamHealth.length} workstreams · Day-1 in <strong>${s.daysToDay1} days</strong>.</p>
+        <p class="subtitle" data-r="2">Overall completion <strong>${complete}%</strong> · ${s.workstreamHealth.length} workstreams · projected Day-1 in <strong>${s.daysToDay1} days</strong>.</p>
       </div>
       <div class="body">
         <div class="glance-overview" data-r="3">
@@ -293,8 +293,8 @@ function glanceSlide(p: ReportPayload): string {
               <div class="donut-legend">${legend}</div>
             </div>
             <div class="day1-strip">
-              <div><span class="d1k">Day-1 target</span><span class="d1v">${fmtDate(s.project.day1TargetDate)}</span></div>
-              ${s.projectedFinish ? `<div><span class="d1k">Forecast finish</span><span class="d1v" style="color:${slipCol}">${fmtDate(s.projectedFinish)}</span><span class="d1slip" style="color:${slipCol}">${slipLabel}</span></div>` : ""}
+              ${s.projectedFinish ? `<div><span class="d1k">Projected Day-1</span><span class="d1v" style="color:${slipCol}">${fmtDate(s.projectedFinish)}</span><span class="d1slip" style="color:${slipCol}">${slipLabel}</span></div>` : ""}
+              <div><span class="d1k">Original target</span><span class="d1v">${fmtDate(s.project.day1TargetDate)}</span></div>
               <div class="d1days"><b>${s.daysToDay1}</b><span>days to go</span></div>
             </div>
           </div>
@@ -426,13 +426,13 @@ function timelineSlide(p: ReportPayload): string {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const todayX = clampX(msToX(today.getTime(), sc), sc);
   const day1X = sc.day1Ms != null ? clampX(msToX(sc.day1Ms, sc), sc) : null;
-  // Forecast marker — only when the plan finishes after Day-1 (a slip).
-  const showForecast = sc.forecastMs != null && sc.day1Ms != null && sc.forecastMs > sc.day1Ms;
-  const forecastX = showForecast ? clampX(msToX(sc.forecastMs!, sc), sc) : null;
+  // Projected Day-1 marker (the plan's latest end) = the prominent navy line;
+  // the original target is a subtle dotted grey reference.
+  const forecastX = sc.forecastMs != null ? clampX(msToX(sc.forecastMs, sc), sc) : null;
   const marks =
     `<div class="gmark gmark-today" style="left:${todayX}px"><span>Today</span></div>` +
-    (day1X != null ? `<div class="gmark gmark-day1" style="left:${day1X}px"><span>Day-1</span></div>` : "") +
-    (forecastX != null ? `<div class="gmark gmark-forecast" style="left:${forecastX}px"><span>Forecast</span></div>` : "");
+    (day1X != null ? `<div class="gmark gmark-day1" style="left:${day1X}px"><span>Target</span></div>` : "") +
+    (forecastX != null ? `<div class="gmark gmark-forecast" style="left:${forecastX}px"><span>Day-1 (proj.)</span></div>` : "");
 
   // Rows grouped by WORKSTREAM + CATEGORY (e.g. "Entity Formation - Finance" is
   // distinct from "Operational readiness - Finance"). Kept in source (sortOrder)
@@ -505,7 +505,7 @@ function timelineSlide(p: ReportPayload): string {
     [["Completed", "#3B82F6"], ["On-track", "#22C55E"], ["At-risk", "#F59E0B"], ["Overdue", "#EF4444"], ["Not started", "#94A3B8"]]
       .map(([l, c]) => `<span class="gl-item"><span class="gl-sw" style="background:${c}"></span>${l}</span>`)
       .join("") +
-    `<span class="gl-sep"></span><span class="gl-item"><span class="gl-hatch"></span>Overdue slip</span><span class="gl-item"><span class="gl-mark gl-today"></span>Today</span><span class="gl-item"><span class="gl-mark gl-day1"></span>Day-1</span><span class="gl-item"><span class="gl-mark gl-forecast"></span>Forecast</span>`;
+    `<span class="gl-sep"></span><span class="gl-item"><span class="gl-hatch"></span>Overdue slip</span><span class="gl-item"><span class="gl-mark gl-today"></span>Today</span><span class="gl-item"><span class="gl-mark gl-forecast"></span>Projected Day-1</span><span class="gl-item"><span class="gl-mark gl-day1"></span>Target</span>`;
 
   return `
   <section class="slide light timeline" data-name="Timeline" data-theme="light">
@@ -513,7 +513,7 @@ function timelineSlide(p: ReportPayload): string {
       <div class="head">
         <div class="eyebrow" data-r="1">Executive Summary</div>
         <div class="title" data-r="1">Timeline</div>
-        <p class="subtitle" data-r="2">Plan by workstream-category through Day-1 (${fmtDate(s.project.day1TargetDate)}) — click a row to expand its items.</p>
+        <p class="subtitle" data-r="2">Plan by workstream-category through projected Day-1 (${fmtDate(s.projectedFinish || s.project.day1TargetDate)}) — click a row to expand its items.</p>
       </div>
       <div class="body">
         <div class="gantt-legend" data-r="3">${legend}</div>
@@ -886,8 +886,8 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .gl-sep{width:1px;height:14px;background:var(--rule);}
 .gl-mark{width:14px;height:0;border-top:2px solid;display:inline-block;}
 .gl-today{border-top-style:dashed;border-top-color:#EF4444;}
-.gl-day1{border-top-color:#1E3A5F;}
-.gl-forecast{border-top-style:dotted;border-top-color:#EF4444;}
+.gl-day1{border-top-style:dotted;border-top-color:#94A3B8;}
+.gl-forecast{border-top-color:#1E3A5F;}
 .gl-hatch{width:16px;height:11px;border-radius:2px;background:repeating-linear-gradient(45deg,rgba(239,68,68,.5) 0,rgba(239,68,68,.5) 1.5px,rgba(239,68,68,.1) 1.5px,rgba(239,68,68,.1) 6px);}
 .gantt-scroll{overflow:auto;max-height:64vh;border:1px solid var(--rule);border-radius:12px;background:#fff;}
 .gantt-canvas{position:relative;min-width:100%;}
@@ -897,12 +897,12 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .gmlabel{position:absolute;top:9px;left:4px;font-size:11px;font-weight:600;color:#64748B;white-space:nowrap;}
 .gmark{position:absolute;top:0;bottom:0;}
 .gmark-today{border-left:1.5px dashed #EF4444;}
-.gmark-day1{border-left:2px solid #1E3A5F;}
-.gmark-forecast{border-left:1.5px dotted #EF4444;}
+.gmark-day1{border-left:1.5px dotted #94A3B8;}
+.gmark-forecast{border-left:2px solid #1E3A5F;}
 .gmark span{position:absolute;top:20px;left:4px;font-size:10px;font-weight:700;white-space:nowrap;}
 .gmark-today span{color:#EF4444;}
-.gmark-day1 span{color:#1E3A5F;}
-.gmark-forecast span{color:#EF4444;top:34px;}
+.gmark-day1 span{color:#94A3B8;top:34px;}
+.gmark-forecast span{color:#1E3A5F;}
 .gantt-header{height:34px;}
 .grow{display:flex;align-items:center;height:30px;border-bottom:1px solid #F1F5F9;}
 .grow-cat{background:#F8FAFC;cursor:pointer;}

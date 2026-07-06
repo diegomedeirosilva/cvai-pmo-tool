@@ -53,13 +53,17 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
   }, [criticalItems, localItems]);
 
   const endDate = useMemo(() => {
-    if (project?.day1TargetDate) {
-      const d = new Date(project.day1TargetDate);
-      d.setDate(d.getDate() + 7);
-      return d;
+    // Right edge = later of {target, latest item end} + 7d, so slipped bars
+    // and the projected Day-1 marker never render off-canvas.
+    let end = project?.day1TargetDate ? new Date(project.day1TargetDate) : new Date("2026-08-14");
+    for (const i of localItems) {
+      const e = new Date(i.endDate);
+      if (e > end) end = e;
     }
-    return new Date("2026-09-01");
-  }, [project]);
+    end = new Date(end);
+    end.setDate(end.getDate() + 7);
+    return end;
+  }, [project, localItems]);
 
   const pixelsPerDay = 6;
   const totalW = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) * pixelsPerDay;
@@ -89,6 +93,14 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
 
   const todayX = dateToXFromDate(today);
   const day1X = project ? dateToX(project.day1TargetDate) : null;
+
+  // Projected Day-1 = latest end date in the whole plan (moves as tasks slip).
+  const projectedFinish = useMemo(() => {
+    let latest: string | null = null;
+    for (const i of localItems) if (i.endDate && (!latest || i.endDate > latest)) latest = i.endDate;
+    return latest;
+  }, [localItems]);
+  const projX = projectedFinish ? dateToX(projectedFinish) : null;
 
   const ganttHeight = criticalItems.length * ROW_HEIGHT + HEADER_HEIGHT;
 
@@ -295,11 +307,19 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
               <line x1={todayX} y1={0} x2={todayX} y2={ganttHeight} stroke="#EF4444" strokeWidth={1.5} strokeDasharray="4,3" />
               <text x={todayX + 3} y={36} fill="#EF4444" fontSize={10} fontWeight="600">Today</text>
 
-              {/* Day-1 */}
+              {/* Original target — dotted grey reference line */}
               {day1X !== null && (
                 <>
-                  <line x1={day1X} y1={0} x2={day1X} y2={ganttHeight} stroke="#1E3A5F" strokeWidth={2} />
-                  <text x={day1X + 3} y={36} fill="#1E3A5F" fontSize={10} fontWeight="700">Day-1</text>
+                  <line x1={day1X} y1={0} x2={day1X} y2={ganttHeight} stroke="#94A3B8" strokeWidth={1.5} strokeDasharray="2,3" />
+                  <text x={day1X + 3} y={50} fill="#94A3B8" fontSize={10} fontWeight="600">Target</text>
+                </>
+              )}
+
+              {/* Projected Day-1 — the plan's latest end, moves as tasks slip */}
+              {projX !== null && (
+                <>
+                  <line x1={projX} y1={0} x2={projX} y2={ganttHeight} stroke="#1E3A5F" strokeWidth={2} />
+                  <text x={projX + 3} y={36} fill="#1E3A5F" fontSize={10} fontWeight="700">Day-1 (proj.)</text>
                 </>
               )}
 

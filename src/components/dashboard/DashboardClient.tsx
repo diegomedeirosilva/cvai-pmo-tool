@@ -146,7 +146,14 @@ export default function DashboardClient({ summary, items }: Props) {
 
   const healthColor = HEALTH_COLORS[liveStats.health];
   const healthLabel = HEALTH_LABELS[liveStats.health];
-  const daysToDay1 = summary.daysToDay1;
+  // Countdown to the PROJECTED Day-1 (latest plan end) — computed live so it
+  // moves the moment an edit changes the plan; server value as fallback.
+  const daysToDay1 = useMemo(() => {
+    if (!projection) return summary.daysToDay1;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((new Date(projection.latest + "T00:00:00").getTime() - today.getTime()) / 86400000);
+  }, [projection, summary.daysToDay1]);
   const countdownColor = daysToDay1 <= 30 ? "#EF4444" : daysToDay1 <= 60 ? "#F59E0B" : "#1E3A5F";
   const slipColor = projection && projection.slip > 0
     ? (projection.slip <= 14 ? "#F59E0B" : "#EF4444")
@@ -175,27 +182,27 @@ export default function DashboardClient({ summary, items }: Props) {
               {daysToDay1}
             </div>
             <div className="text-xs text-slate-400 mt-1">
-              Target · {new Date(summary.project.day1TargetDate).toLocaleDateString("en-GB", {
+              Projected · {new Date((projection ? projection.latest : summary.project.day1TargetDate) + "T00:00:00").toLocaleDateString("en-GB", {
                 day: "numeric", month: "short", year: "numeric",
               })}
             </div>
-            {projection && (
-              <div className="mt-2 pt-2 border-t border-slate-100 w-full">
-                <div className="text-slate-400 uppercase tracking-wider" style={{ fontSize: 9 }}>Forecast finish</div>
-                <div className="text-sm font-semibold text-slate-700 tabular-nums mt-0.5">
-                  {new Date(projection.latest + "T00:00:00").toLocaleDateString("en-GB", {
-                    day: "numeric", month: "short", year: "numeric",
-                  })}
-                </div>
+            <div className="mt-2 pt-2 border-t border-slate-100 w-full">
+              <div className="text-slate-400 uppercase tracking-wider" style={{ fontSize: 9 }}>Original target</div>
+              <div className="text-sm font-semibold text-slate-700 tabular-nums mt-0.5">
+                {new Date(summary.project.day1TargetDate + "T00:00:00").toLocaleDateString("en-GB", {
+                  day: "numeric", month: "short", year: "numeric",
+                })}
+              </div>
+              {projection && (
                 <div className="font-semibold mt-0.5" style={{ color: slipColor, fontSize: 11 }}>
                   {projection.slip > 0
-                    ? `▲ ${projection.slip}d past target`
+                    ? `▲ slipped ${projection.slip}d`
                     : projection.slip < 0
                     ? `▼ ${-projection.slip}d ahead`
                     : "On target"}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Overall Health</div>

@@ -135,8 +135,11 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input h-20 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Day-1 Target Date</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Original Day-1 Target</label>
             <input type="date" value={day1} onChange={(e) => setDay1(e.target.value)} className="input max-w-xs" />
+            <p className="text-xs text-slate-400 mt-1">
+              The committed baseline date. The dashboard&apos;s Day-1 is projected live from the plan&apos;s latest end date and measured against this target to show slippage.
+            </p>
           </div>
           <button
             onClick={saveProject}

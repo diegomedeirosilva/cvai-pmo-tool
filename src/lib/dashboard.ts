@@ -109,7 +109,20 @@ export function buildDashboardSummary(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const daysToDay1 = differenceInCalendarDays(new Date(project.day1TargetDate), today);
+  // Projected Day-1 = the latest end date across the plan — the day the JV is
+  // actually ready. It moves automatically as tasks slip (via the dependency
+  // cascade). The Settings date is the ORIGINAL committed target, kept fixed so
+  // the gap between the two (projectedSlipDays) shows how far the plan slipped.
+  let projectedFinish: string | null = null;
+  for (const item of items) {
+    if (item.endDate && (!projectedFinish || item.endDate > projectedFinish)) projectedFinish = item.endDate;
+  }
+  const projectedSlipDays = projectedFinish
+    ? differenceInCalendarDays(new Date(projectedFinish), new Date(project.day1TargetDate))
+    : 0;
+
+  // The headline countdown counts to the PROJECTED Day-1 (target as fallback).
+  const daysToDay1 = differenceInCalendarDays(new Date(projectedFinish ?? project.day1TargetDate), today);
 
   let notStarted = 0, completed = 0, onTrack = 0, atRisk = 0, overdue = 0;
   const workstreamMap = new Map<
@@ -172,18 +185,6 @@ export function buildDashboardSummary(
     .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
   const overallHealth = computeHealth(items.length, completed, overdue, atRisk);
-
-  // Projected finish = the latest end date across the plan. Unlike the fixed
-  // Day-1 target, it moves automatically as tasks slip (via the dependency
-  // cascade), so the gap between the two is the live "are we going to miss
-  // Day-1?" signal. Positive slip = plan finishes past the committed target.
-  let projectedFinish: string | null = null;
-  for (const item of items) {
-    if (item.endDate && (!projectedFinish || item.endDate > projectedFinish)) projectedFinish = item.endDate;
-  }
-  const projectedSlipDays = projectedFinish
-    ? differenceInCalendarDays(new Date(projectedFinish), new Date(project.day1TargetDate))
-    : 0;
 
   return {
     project,

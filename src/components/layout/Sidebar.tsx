@@ -30,8 +30,9 @@ export default function Sidebar({ workstreams }: SidebarProps) {
     <aside className="w-56 bg-[#1E3A5F] flex flex-col h-screen flex-shrink-0">
       {/* Logo */}
       <div className="px-4 py-5 border-b border-blue-800">
-        <div className="text-white font-semibold text-sm">PMO Dashboard</div>
-        <div className="text-blue-300 text-xs mt-0.5">CVA · Project Crystal</div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/cva-logo-white.png" alt="CVA" className="w-24 h-auto" />
+        <div className="text-blue-300 text-xs mt-2">Project Crystal · PMO</div>
       </div>
 
       {/* Nav */}

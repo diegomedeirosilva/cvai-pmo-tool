@@ -102,6 +102,8 @@ export interface DashboardSummary {
   onTrack: number;
   atRisk: number;
   overdue: number;
+  projectedFinish: string | null; // latest end date across all items (ISO); the plan's true end, moves as tasks slip
+  projectedSlipDays: number;      // projectedFinish − day1TargetDate in calendar days (positive = past target)
   workstreamHealth: WorkstreamHealth[];
   upcomingMilestones: ActionItem[];
   aiSummary?: string;

@@ -25,8 +25,14 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
   const [items, setItems] = useState(initialItems);
   const [deps, setDeps] = useState(initialDeps);
   const [groupBy, setGroupBy] = useState<GroupBy>("category");
-  const [zoom, setZoom] = useState<ZoomLevel>("week");
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [zoom, setZoom] = useState<ZoomLevel>("month");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    // Default view = monthly, every group collapsed (high-level roll-up on open).
+    // Groups use the default "category" key: `${workstream} · ${category}`.
+    const labels = new Set<string>();
+    for (const item of initialItems) labels.add(`${item.workstream} · ${item.category}`);
+    return labels;
+  });
   const [tooltip, setTooltip] = useState<{ item: ActionItem; x: number; y: number } | null>(null);
   const [editItem, setEditItem] = useState<ActionItem | null>(null);
   const [showDeps, setShowDeps] = useState(true);
@@ -72,13 +78,17 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
   }, [items]);
 
   const endDate = useMemo(() => {
-    if (project?.day1TargetDate) {
-      const d = new Date(project.day1TargetDate);
-      d.setDate(d.getDate() + 14);
-      return d;
+    // Right edge = later of {Day-1 target, plan's latest finish} + 14d padding,
+    // so bars that slip past Day-1 never render off the visible canvas.
+    let end = project?.day1TargetDate ? new Date(project.day1TargetDate) : new Date("2026-08-14");
+    for (const item of items) {
+      const e = new Date(item.endDate);
+      if (e > end) end = e;
     }
-    return new Date("2026-09-01");
-  }, [project]);
+    end = new Date(end);
+    end.setDate(end.getDate() + 14);
+    return end;
+  }, [project, items]);
 
   const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
   const pixelsPerDay = zoom === "week" ? 9 : 4;
@@ -254,9 +264,22 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
     return map;
   }, [items]);
 
+  // Projected finish = latest end date in the plan (moves as tasks slip).
+  const projectedFinish = useMemo(() => {
+    let latest: string | null = null;
+    for (const i of items) if (i.endDate && (!latest || i.endDate > latest)) latest = i.endDate;
+    return latest;
+  }, [items]);
+
   const totalHeight = rows.length * ROW_HEIGHT + HEADER_HEIGHT;
   const todayX = dateToXFromDate(today);
   const day1X = project ? dateToX(project.day1TargetDate) : null;
+  const forecastX = projectedFinish ? dateToX(projectedFinish) : null;
+  // Only draw the forecast marker when the plan finishes AFTER Day-1 (a slip) —
+  // otherwise it coincides with / precedes the Day-1 line and just adds noise.
+  const showForecast =
+    projectedFinish != null && day1X != null && project != null &&
+    new Date(projectedFinish + "T00:00:00").getTime() > new Date(project.day1TargetDate + "T00:00:00").getTime();
 
   function statusOf(item: ActionItem): string {
     return item.actualCompletionPct >= 1.0 ? "Completed"
@@ -576,6 +599,10 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
             />
             <span className="text-xs text-slate-500">Overdue slip</span>
           </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 border-t-2 border-dashed" style={{ borderColor: "#EF4444" }} />
+            <span className="text-xs text-slate-500">Forecast finish</span>
+          </div>
         </div>
       </div>
 
@@ -626,6 +653,16 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                   <rect width={1.5} height={8} fill="#EF4444" opacity={0.5} />
                 </pattern>
               </defs>
+              {/* Row backgrounds — base layer (paint first so the grid + marker
+                  lines stay visible over collapsed grey group rows) */}
+              {rows.map((row, idx) => (
+                <rect
+                  key={`bg-${idx}`}
+                  x={0} y={HEADER_HEIGHT + idx * ROW_HEIGHT}
+                  width={chartWidth} height={ROW_HEIGHT}
+                  fill={row.type === "group" ? "#F8FAFC" : "transparent"}
+                />
+              ))}
               {/* Grid lines */}
               {gridLines.map((line, i) => (
                 <g key={i}>
@@ -646,28 +683,6 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
               ))}
 
               {/* Month labels removed from week view per user preference */}
-
-              {/* Today line */}
-              <line x1={todayX} y1={0} x2={todayX} y2={totalHeight} stroke="#EF4444" strokeWidth={1.5} strokeDasharray="4,3" />
-              <text x={todayX + 3} y={36} fill="#EF4444" fontSize={10} fontWeight="600">Today</text>
-
-              {/* Day-1 line */}
-              {day1X !== null && (
-                <>
-                  <line x1={day1X} y1={0} x2={day1X} y2={totalHeight} stroke="#1E3A5F" strokeWidth={2} />
-                  <text x={day1X + 3} y={36} fill="#1E3A5F" fontSize={10} fontWeight="700">Day-1</text>
-                </>
-              )}
-
-              {/* Row backgrounds */}
-              {rows.map((row, idx) => (
-                <rect
-                  key={`bg-${idx}`}
-                  x={0} y={HEADER_HEIGHT + idx * ROW_HEIGHT}
-                  width={chartWidth} height={ROW_HEIGHT}
-                  fill={row.type === "group" ? "#F8FAFC" : "transparent"}
-                />
-              ))}
 
               {/* Bars */}
               {rows.map((row, idx) => {
@@ -809,6 +824,23 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                   <polygon points="0 0, 6 3, 0 6" fill="#94A3B8" />
                 </marker>
               </defs>
+
+              {/* Reference lines (Today / Day-1 / Forecast) — drawn LAST so they
+                  stay visible on top of bars and collapsed group backgrounds. */}
+              <line x1={todayX} y1={0} x2={todayX} y2={totalHeight} stroke="#EF4444" strokeWidth={1.5} strokeDasharray="4,3" />
+              <text x={todayX + 3} y={36} fill="#EF4444" fontSize={10} fontWeight="600">Today</text>
+              {day1X !== null && (
+                <>
+                  <line x1={day1X} y1={0} x2={day1X} y2={totalHeight} stroke="#1E3A5F" strokeWidth={2} />
+                  <text x={day1X + 3} y={36} fill="#1E3A5F" fontSize={10} fontWeight="700">Day-1</text>
+                </>
+              )}
+              {showForecast && forecastX !== null && (
+                <>
+                  <line x1={forecastX} y1={0} x2={forecastX} y2={totalHeight} stroke="#EF4444" strokeWidth={1.5} strokeDasharray="2,3" />
+                  <text x={forecastX + 3} y={50} fill="#EF4444" fontSize={10} fontWeight="700">Forecast</text>
+                </>
+              )}
             </svg>
 
             {/* Tooltip */}

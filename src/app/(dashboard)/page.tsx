@@ -1,4 +1,4 @@
-import { db, actionItems, projects, dependencies, snapshots } from "@/lib/db";
+import { db, actionItems, projects, snapshots } from "@/lib/db";
 import { asc, desc } from "drizzle-orm";
 import { buildDashboardSummary } from "@/lib/dashboard";
 import { takeSnapshot } from "@/lib/snapshot";
@@ -36,10 +36,7 @@ export default async function DashboardPage() {
       console.error("Weekly snapshot check failed:", e);
     }
 
-    const [items, deps] = await Promise.all([
-      db.select().from(actionItems).orderBy(asc(actionItems.sortOrder)),
-      db.select({ predecessorId: dependencies.predecessorId, successorId: dependencies.successorId }).from(dependencies),
-    ]);
+    const items = await db.select().from(actionItems).orderBy(asc(actionItems.sortOrder));
 
     const summary = buildDashboardSummary(
       projectRows[0] as unknown as Project,
@@ -47,7 +44,7 @@ export default async function DashboardPage() {
       []
     );
 
-    return <DashboardClient summary={summary} items={items as unknown as ActionItem[]} dependencies={deps} />;
+    return <DashboardClient summary={summary} items={items as unknown as ActionItem[]} />;
   } catch (e) {
     console.error("Dashboard error:", e);
     return (

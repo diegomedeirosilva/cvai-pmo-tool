@@ -173,6 +173,18 @@ export function buildDashboardSummary(
 
   const overallHealth = computeHealth(items.length, completed, overdue, atRisk);
 
+  // Projected finish = the latest end date across the plan. Unlike the fixed
+  // Day-1 target, it moves automatically as tasks slip (via the dependency
+  // cascade), so the gap between the two is the live "are we going to miss
+  // Day-1?" signal. Positive slip = plan finishes past the committed target.
+  let projectedFinish: string | null = null;
+  for (const item of items) {
+    if (item.endDate && (!projectedFinish || item.endDate > projectedFinish)) projectedFinish = item.endDate;
+  }
+  const projectedSlipDays = projectedFinish
+    ? differenceInCalendarDays(new Date(projectedFinish), new Date(project.day1TargetDate))
+    : 0;
+
   return {
     project,
     daysToDay1,
@@ -183,6 +195,8 @@ export function buildDashboardSummary(
     onTrack,
     atRisk,
     overdue,
+    projectedFinish,
+    projectedSlipDays,
     workstreamHealth,
     upcomingMilestones,
   };

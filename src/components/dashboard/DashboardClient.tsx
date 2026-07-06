@@ -12,19 +12,16 @@ import WorkstreamHealthTable from "./WorkstreamHealthTable";
 import MilestonesCard from "./MilestonesCard";
 import AttentionCard from "./AttentionCard";
 import ActionItemModal from "../shared/ActionItemModal";
-import PropagateDelayModal from "../shared/PropagateDelayModal";
 
 interface Props {
   summary: Omit<DashboardSummary, "aiSummary">;
   items: ActionItem[];
-  dependencies: { predecessorId: string; successorId: string }[];
 }
 
-export default function DashboardClient({ summary, items, dependencies }: Props) {
+export default function DashboardClient({ summary, items }: Props) {
   const router = useRouter();
   const [selectedItem, setSelectedItem] = useState<ActionItem | null>(null);
   const [allItems, setAllItems] = useState(items);
-  const [propagateTarget, setPropagateTarget] = useState<{ item: ActionItem; successorCount: number } | null>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
 
   // Sync allItems when server props change (e.g. after router.refresh())
@@ -92,29 +89,21 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
     return { total, notStarted, completed, onTrack, atRisk, overdue, health, milestones, workstreamHealth };
   }, [allItems]);
 
-  // Overdue items that are blocking downstream successors — for timeline alert banner
-  const overdueBlockers = useMemo(() => {
-    const successorMap = new Map<string, string[]>();
-    for (const dep of dependencies) {
-      if (!successorMap.has(dep.predecessorId)) successorMap.set(dep.predecessorId, []);
-      successorMap.get(dep.predecessorId)!.push(dep.successorId);
+  // Projected finish = the latest end date in the plan (recomputed live so it
+  // reflects edits instantly). Compared against the fixed Day-1 target to show
+  // slippage without moving the committed deadline.
+  const projection = useMemo(() => {
+    let latest: string | null = null;
+    for (const i of allItems) {
+      if (i.endDate && (!latest || i.endDate > latest)) latest = i.endDate;
     }
-    return allItems
-      .filter((item) => computeStatus(item) === "Overdue" && successorMap.has(item.id))
-      .map((item) => {
-        // BFS to count transitive successors
-        const visited = new Set<string>();
-        const queue = [item.id];
-        while (queue.length > 0) {
-          const curr = queue.shift()!;
-          for (const succ of successorMap.get(curr) || []) {
-            if (!visited.has(succ)) { visited.add(succ); queue.push(succ); }
-          }
-        }
-        return { item, successorCount: visited.size };
-      })
-      .sort((a, b) => b.successorCount - a.successorCount);
-  }, [allItems, dependencies]);
+    if (!latest) return null;
+    const target = summary.project.day1TargetDate;
+    const slip = Math.round(
+      (new Date(latest + "T00:00:00").getTime() - new Date(target + "T00:00:00").getTime()) / 86400000
+    );
+    return { latest, slip };
+  }, [allItems, summary.project.day1TargetDate]);
 
   // Status distribution chart data (oldest first)
   const chartData = useMemo(() => {
@@ -159,6 +148,9 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
   const healthLabel = HEALTH_LABELS[liveStats.health];
   const daysToDay1 = summary.daysToDay1;
   const countdownColor = daysToDay1 <= 30 ? "#EF4444" : daysToDay1 <= 60 ? "#F59E0B" : "#1E3A5F";
+  const slipColor = projection && projection.slip > 0
+    ? (projection.slip <= 14 ? "#F59E0B" : "#EF4444")
+    : "#22C55E";
 
   return (
     <div className="p-5 space-y-4 max-w-[1400px]">
@@ -173,34 +165,6 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
         </div>
       </div>
 
-      {/* Timeline alert banners — overdue items blocking downstream successors */}
-      {overdueBlockers.slice(0, 3).map(({ item, successorCount }) => {
-        const overdueBy = Math.round(
-          (new Date().setHours(0, 0, 0, 0) - new Date(item.endDate).getTime()) / 86400000
-        );
-        return (
-          <div
-            key={item.id}
-            className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="text-amber-500 text-base flex-shrink-0">⚠</span>
-              <p className="text-sm text-amber-800 truncate">
-                <strong className="font-semibold">{item.requirement || item.action}</strong>
-                {" "}is overdue by {overdueBy}d and is blocking{" "}
-                <strong>{successorCount} downstream item{successorCount !== 1 ? "s" : ""}</strong>.
-              </p>
-            </div>
-            <button
-              onClick={() => setPropagateTarget({ item, successorCount })}
-              className="flex-shrink-0 px-3 py-1.5 text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white rounded-lg"
-            >
-              Reschedule →
-            </button>
-          </div>
-        );
-      })}
-
       {/* Row 1: countdown+health + pie metrics + workstream health table */}
       <div className="grid grid-cols-12 gap-4">
         {/* Countdown + Health */}
@@ -211,10 +175,27 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
               {daysToDay1}
             </div>
             <div className="text-xs text-slate-400 mt-1">
-              {new Date(summary.project.day1TargetDate).toLocaleDateString("en-GB", {
+              Target · {new Date(summary.project.day1TargetDate).toLocaleDateString("en-GB", {
                 day: "numeric", month: "short", year: "numeric",
               })}
             </div>
+            {projection && (
+              <div className="mt-2 pt-2 border-t border-slate-100 w-full">
+                <div className="text-slate-400 uppercase tracking-wider" style={{ fontSize: 9 }}>Forecast finish</div>
+                <div className="text-sm font-semibold text-slate-700 tabular-nums mt-0.5">
+                  {new Date(projection.latest + "T00:00:00").toLocaleDateString("en-GB", {
+                    day: "numeric", month: "short", year: "numeric",
+                  })}
+                </div>
+                <div className="font-semibold mt-0.5" style={{ color: slipColor, fontSize: 11 }}>
+                  {projection.slip > 0
+                    ? `▲ ${projection.slip}d past target`
+                    : projection.slip < 0
+                    ? `▼ ${-projection.slip}d ahead`
+                    : "On target"}
+                </div>
+              </div>
+            )}
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Overall Health</div>
@@ -316,28 +297,6 @@ export default function DashboardClient({ summary, items, dependencies }: Props)
           </ResponsiveContainer>
         )}
       </div>
-
-      {/* Propagate delay modal */}
-      {propagateTarget && (
-        <PropagateDelayModal
-          item={propagateTarget.item}
-          successorCount={propagateTarget.successorCount}
-          onClose={() => setPropagateTarget(null)}
-          onConfirm={async (newEndDate) => {
-            const res = await fetch(`/api/actions/${propagateTarget.item.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ endDate: newEndDate }),
-            });
-            if (!res.ok) {
-              const err = await res.text();
-              throw new Error(`Reschedule failed (${res.status}): ${err}`);
-            }
-            setPropagateTarget(null);
-            router.refresh();
-          }}
-        />
-      )}
 
       {/* Action item modal */}
       {selectedItem && (

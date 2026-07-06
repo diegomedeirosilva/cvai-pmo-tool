@@ -1,5 +1,6 @@
 import { DashboardSummary, Risk, ActionItem } from "@/types";
 import { computeStatus, rollupStatus, computeGroupStatus, averageCompletion } from "@/lib/dashboard";
+import { CVA_LOGO_DATA_URI } from "./logo";
 
 // ---- Input shape -----------------------------------------------------------
 
@@ -116,7 +117,7 @@ function titleWithBreak(title: string): string {
 const G_LABEL = 250, G_MIN_PPD = 2, G_MAX_PPD = 8; // label-col width (px) + zoom clamp; row/bar sizes live in CSS
 const DAY_MS = 86400000;
 
-type GScale = { startMs: number; endMs: number; totalDays: number; ppd: number; chartWidth: number; day1Ms: number | null };
+type GScale = { startMs: number; endMs: number; totalDays: number; ppd: number; chartWidth: number; day1Ms: number | null; forecastMs: number | null };
 
 function gDate(s: string): Date | null {
   if (!s) return null;
@@ -138,17 +139,19 @@ function timeScale(items: ActionItem[], day1Target: string): GScale {
   const starts = items.map((i) => gDate(i.startDate)).filter(Boolean).map((d) => (d as Date).getTime());
   const ends = items.map((i) => gDate(i.endDate)).filter(Boolean).map((d) => (d as Date).getTime());
   const day1 = gDate(day1Target);
+  const forecastMs = ends.length ? Math.max(...ends) : null; // plan's latest finish
   const firstStart = starts.length ? new Date(Math.min(...starts)) : day1 || new Date(2026, 1, 1);
   const start = new Date(firstStart.getFullYear(), firstStart.getMonth(), 1); // first of month
-  let endMs = day1 ? day1.getTime() + 14 * DAY_MS : (ends.length ? Math.max(...ends) : start.getTime() + 180 * DAY_MS);
-  if (ends.length && Math.max(...ends) > endMs) endMs = Math.max(...ends);
+  let endMs = day1 ? day1.getTime() + 14 * DAY_MS : (forecastMs ?? start.getTime() + 180 * DAY_MS);
+  // Extend past Day-1 to cover the plan's latest finish (+14d pad) so slipped bars stay on-canvas.
+  if (forecastMs != null && forecastMs + 14 * DAY_MS > endMs) endMs = forecastMs + 14 * DAY_MS;
   const startMs = start.getTime();
   if (endMs <= startMs) endMs = startMs + 30 * DAY_MS;
   const totalDays = Math.ceil((endMs - startMs) / DAY_MS);
   const available = 1440 - 250 - 128 - G_LABEL; // viewport − rail − padding − label col
   const ppd = Math.max(G_MIN_PPD, Math.min(G_MAX_PPD, available / totalDays));
   const chartWidth = Math.round(totalDays * ppd);
-  return { startMs, endMs, totalDays, ppd, chartWidth, day1Ms: day1 ? day1.getTime() : null };
+  return { startMs, endMs, totalDays, ppd, chartWidth, day1Ms: day1 ? day1.getTime() : null, forecastMs };
 }
 
 function monthLines(sc: GScale): { x: number; label: string }[] {
@@ -197,6 +200,7 @@ function coverSlide(p: ReportPayload): string {
   <section class="slide dark cover" data-name="Cover" data-theme="dark">
     <div class="aurora"></div>
     <div class="slide-inner">
+      <img class="cover-logo" data-r="1" src="${CVA_LOGO_DATA_URI}" alt="CVA" />
       <div class="cover-eyebrow" data-r="1">Executive Status Report</div>
       <h1 class="cover-h1" data-r="2">${titleWithBreak(s.project.title)}</h1>
       <div class="cover-date" data-r="4">
@@ -264,6 +268,11 @@ function glanceSlide(p: ReportPayload): string {
           : "")
       : `<li class="empty">No overdue or at-risk items.</li>`;
 
+  // Forecast finish vs the fixed Day-1 target — surfaces slip without moving the deadline.
+  const slipDays = s.projectedSlipDays;
+  const slipCol = slipDays > 14 ? "#DC2626" : slipDays > 0 ? "#D97706" : "#059669";
+  const slipLabel = slipDays > 0 ? `${slipDays}d past target` : slipDays < 0 ? `${-slipDays}d ahead` : "on target";
+
   return `
   <section class="slide light" data-name="At a Glance" data-theme="light">
     <div class="slide-inner">
@@ -285,6 +294,7 @@ function glanceSlide(p: ReportPayload): string {
             </div>
             <div class="day1-strip">
               <div><span class="d1k">Day-1 target</span><span class="d1v">${fmtDate(s.project.day1TargetDate)}</span></div>
+              ${s.projectedFinish ? `<div><span class="d1k">Forecast finish</span><span class="d1v" style="color:${slipCol}">${fmtDate(s.projectedFinish)}</span><span class="d1slip" style="color:${slipCol}">${slipLabel}</span></div>` : ""}
               <div class="d1days"><b>${s.daysToDay1}</b><span>days to go</span></div>
             </div>
           </div>
@@ -416,9 +426,13 @@ function timelineSlide(p: ReportPayload): string {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const todayX = clampX(msToX(today.getTime(), sc), sc);
   const day1X = sc.day1Ms != null ? clampX(msToX(sc.day1Ms, sc), sc) : null;
+  // Forecast marker — only when the plan finishes after Day-1 (a slip).
+  const showForecast = sc.forecastMs != null && sc.day1Ms != null && sc.forecastMs > sc.day1Ms;
+  const forecastX = showForecast ? clampX(msToX(sc.forecastMs!, sc), sc) : null;
   const marks =
     `<div class="gmark gmark-today" style="left:${todayX}px"><span>Today</span></div>` +
-    (day1X != null ? `<div class="gmark gmark-day1" style="left:${day1X}px"><span>Day-1</span></div>` : "");
+    (day1X != null ? `<div class="gmark gmark-day1" style="left:${day1X}px"><span>Day-1</span></div>` : "") +
+    (forecastX != null ? `<div class="gmark gmark-forecast" style="left:${forecastX}px"><span>Forecast</span></div>` : "");
 
   // Rows grouped by WORKSTREAM + CATEGORY (e.g. "Entity Formation - Finance" is
   // distinct from "Operational readiness - Finance"). Kept in source (sortOrder)
@@ -491,7 +505,7 @@ function timelineSlide(p: ReportPayload): string {
     [["Completed", "#3B82F6"], ["On-track", "#22C55E"], ["At-risk", "#F59E0B"], ["Overdue", "#EF4444"], ["Not started", "#94A3B8"]]
       .map(([l, c]) => `<span class="gl-item"><span class="gl-sw" style="background:${c}"></span>${l}</span>`)
       .join("") +
-    `<span class="gl-sep"></span><span class="gl-item"><span class="gl-hatch"></span>Overdue slip</span><span class="gl-item"><span class="gl-mark gl-today"></span>Today</span><span class="gl-item"><span class="gl-mark gl-day1"></span>Day-1</span>`;
+    `<span class="gl-sep"></span><span class="gl-item"><span class="gl-hatch"></span>Overdue slip</span><span class="gl-item"><span class="gl-mark gl-today"></span>Today</span><span class="gl-item"><span class="gl-mark gl-day1"></span>Day-1</span><span class="gl-item"><span class="gl-mark gl-forecast"></span>Forecast</span>`;
 
   return `
   <section class="slide light timeline" data-name="Timeline" data-theme="light">
@@ -639,6 +653,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 #rail{width:var(--rail-w);flex-shrink:0;background:linear-gradient(180deg,#04101F,#061B30 60%,#081f38);color:#fff;display:flex;flex-direction:column;position:relative;z-index:40;border-right:1px solid rgba(255,255,255,.07);}
 .rail-logo{padding:28px 26px 18px;}
 .rail-logo .rl-word{font-family:var(--display);font-weight:600;font-size:30px;letter-spacing:2px;}
+.rail-logo .rl-logo-img{width:92px;height:auto;display:block;}
 .rail-logo .tag{margin-top:8px;font-size:9.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--teal-500);}
 .rail-logo .tag span{display:block;color:rgba(255,255,255,.4);margin-top:3px;}
 #rail nav{flex:1;overflow-y:auto;padding:6px 0;position:relative;}
@@ -694,6 +709,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .slide.active [data-r='5']{transition-delay:.34s;}
 
 /* cover */
+.cover-logo{width:134px;height:auto;margin-bottom:34px;}
 .cover-eyebrow{font-size:12px;font-weight:600;letter-spacing:6px;text-transform:uppercase;color:var(--teal-400);margin-bottom:26px;display:flex;align-items:center;gap:16px;}
 .cover-eyebrow::before{content:'';width:46px;height:2px;background:var(--teal-500);}
 .cover-h1{font-family:var(--display);font-weight:600;font-size:clamp(44px,6vw,86px);line-height:1.04;letter-spacing:-1px;color:#fff;margin-bottom:22px;}
@@ -813,6 +829,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .day1-strip .d1days{text-align:right;}
 .day1-strip .d1days b{font-family:var(--display);font-weight:600;font-size:28px;color:var(--navy-800);line-height:1;}
 .day1-strip .d1days span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-faint);margin-top:3px;}
+.day1-strip .d1slip{display:block;font-size:10.5px;font-weight:700;margin-top:2px;}
 .donut-legend{flex:1;display:flex;flex-direction:column;gap:11px;min-width:0;}
 .lg-row{display:flex;align-items:center;gap:11px;font-size:14.5px;}
 .lg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
@@ -870,6 +887,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .gl-mark{width:14px;height:0;border-top:2px solid;display:inline-block;}
 .gl-today{border-top-style:dashed;border-top-color:#EF4444;}
 .gl-day1{border-top-color:#1E3A5F;}
+.gl-forecast{border-top-style:dotted;border-top-color:#EF4444;}
 .gl-hatch{width:16px;height:11px;border-radius:2px;background:repeating-linear-gradient(45deg,rgba(239,68,68,.5) 0,rgba(239,68,68,.5) 1.5px,rgba(239,68,68,.1) 1.5px,rgba(239,68,68,.1) 6px);}
 .gantt-scroll{overflow:auto;max-height:64vh;border:1px solid var(--rule);border-radius:12px;background:#fff;}
 .gantt-canvas{position:relative;min-width:100%;}
@@ -880,9 +898,11 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .gmark{position:absolute;top:0;bottom:0;}
 .gmark-today{border-left:1.5px dashed #EF4444;}
 .gmark-day1{border-left:2px solid #1E3A5F;}
+.gmark-forecast{border-left:1.5px dotted #EF4444;}
 .gmark span{position:absolute;top:20px;left:4px;font-size:10px;font-weight:700;white-space:nowrap;}
 .gmark-today span{color:#EF4444;}
 .gmark-day1 span{color:#1E3A5F;}
+.gmark-forecast span{color:#EF4444;top:34px;}
 .gantt-header{height:34px;}
 .grow{display:flex;align-items:center;height:30px;border-bottom:1px solid #F1F5F9;}
 .grow-cat{background:#F8FAFC;cursor:pointer;}
@@ -926,6 +946,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 #intro{position:fixed;inset:0;z-index:100;background:var(--navy-950);display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity .8s var(--ease),visibility .8s;}
 #intro.gone{opacity:0;visibility:hidden;}
 .intro-word{font-family:var(--display);font-weight:600;font-size:60px;letter-spacing:3px;color:#fff;}
+.intro-logo{width:156px;height:auto;}
 #intro .il{margin-top:14px;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--teal-500);}
 
 @media (max-width:1080px){
@@ -962,10 +983,10 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 </style>
 </head>
 <body>
-<div id="intro"><div class="intro-word">CVA</div><div class="il">${esc(p.summary.project.title)}</div></div>
+<div id="intro"><img class="intro-logo" src="${CVA_LOGO_DATA_URI}" alt="CVA" /><div class="il">${esc(p.summary.project.title)}</div></div>
 <div id="app">
   <aside id="rail">
-    <div class="rail-logo"><div class="rl-word">CVA</div><div class="tag">Executive Report<span>${esc(p.weekLabel || "Status update")}</span></div></div>
+    <div class="rail-logo"><img class="rl-logo-img" src="${CVA_LOGO_DATA_URI}" alt="CVA" /><div class="tag">Executive Report<span>${esc(p.weekLabel || "Status update")}</span></div></div>
     <nav id="railnav"><div class="rail-line"></div><div class="rail-fill" id="railfill"></div></nav>
     <div class="rail-foot">Private &amp; Confidential</div>
   </aside>

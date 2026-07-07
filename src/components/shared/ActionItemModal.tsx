@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ActionItem } from "@/types";
 import { STATUS_BG } from "@/lib/utils";
 import { computeStatus, timeBasedTarget } from "@/lib/dashboard";
@@ -79,11 +79,38 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
     }
   }
 
+  // Dropdown options derived from the existing plan. Workstreams/categories keep
+  // plan (sortOrder) order to match the sidebar; categories are scoped to the
+  // selected workstream; owners are alphabetical.
+  const workstreamOptions = useMemo(() => {
+    const seen: string[] = [];
+    for (const i of allItems || []) if (i.workstream && !seen.includes(i.workstream)) seen.push(i.workstream);
+    return seen;
+  }, [allItems]);
+  const categoryOptions = useMemo(() => {
+    const seen: string[] = [];
+    for (const i of allItems || []) {
+      if (i.workstream === form.workstream && i.category && !seen.includes(i.category)) seen.push(i.category);
+    }
+    return seen;
+  }, [allItems, form.workstream]);
+  const ownerOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const i of allItems || []) if (i.owner) seen.add(i.owner);
+    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  }, [allItems]);
+
   async function handleSave() {
+    const workstream = form.workstream.trim();
+    const category = form.category.trim();
+    if (!workstream || !category) {
+      setSaveError("Workstream and Category are required — otherwise the item won't appear under any group.");
+      return;
+    }
     setSaving(true);
     setSaveError("");
     try {
-      await onSave(form, selectedPredId);
+      await onSave({ ...form, workstream, category, owner: form.owner.trim() }, selectedPredId);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Save failed";
       setSaveError(msg);
@@ -136,19 +163,24 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
         <div className="px-5 py-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Workstream">
-              <input
+              <SelectOrNew
                 value={form.workstream}
-                onChange={(e) => update("workstream", e.target.value)}
-                className="input"
-                placeholder="e.g., SHA"
+                options={workstreamOptions}
+                onChange={(v) =>
+                  // switching workstream invalidates the category (categories are per-workstream)
+                  setForm((prev) => (v === prev.workstream ? prev : { ...prev, workstream: v, category: "" }))
+                }
+                addLabel="＋ Add new workstream…"
+                placeholder="New workstream name"
               />
             </Field>
             <Field label="Category">
-              <input
+              <SelectOrNew
                 value={form.category}
-                onChange={(e) => update("category", e.target.value)}
-                className="input"
-                placeholder="e.g., Budget and BP"
+                options={categoryOptions}
+                onChange={(v) => update("category", v)}
+                addLabel="＋ Add new category…"
+                placeholder="New category name"
               />
             </Field>
           </div>
@@ -173,10 +205,11 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Owner">
-              <input
+              <SelectOrNew
                 value={form.owner}
-                onChange={(e) => update("owner", e.target.value)}
-                className="input"
+                options={ownerOptions}
+                onChange={(v) => update("owner", v)}
+                addLabel="＋ Add new owner…"
                 placeholder="e.g., Hassen Moolla"
               />
             </Field>
@@ -379,5 +412,76 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
       {children}
     </div>
+  );
+}
+
+// Dropdown of existing values with a "+ Add new…" escape hatch that switches to
+// a free-text input (↩ returns to the list). Keeps entries consistent with the
+// plan so items never land under a misspelled group.
+function SelectOrNew({
+  value,
+  options,
+  onChange,
+  addLabel,
+  placeholder,
+}: {
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  addLabel: string;
+  placeholder: string;
+}) {
+  const [adding, setAdding] = useState(false);
+  // keep the current value selectable even if it's not in the derived list
+  const opts = value && !options.includes(value) ? [value, ...options] : options;
+
+  if (adding) {
+    return (
+      <div className="flex gap-1.5">
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="input flex-1 min-w-0"
+          placeholder={placeholder}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setAdding(false);
+            onChange("");
+          }}
+          className="px-2 border border-slate-200 rounded-lg text-slate-400 hover:text-slate-600 text-sm flex-shrink-0"
+          title="Back to list"
+        >
+          ↩
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === "__new__") {
+          onChange("");
+          setAdding(true);
+        } else {
+          onChange(e.target.value);
+        }
+      }}
+      className="input"
+    >
+      <option value="" disabled>
+        Select…
+      </option>
+      {opts.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+      <option value="__new__">{addLabel}</option>
+    </select>
   );
 }

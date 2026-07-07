@@ -8,11 +8,12 @@ import ActionItemModal from "@/components/shared/ActionItemModal";
 
 interface Props {
   ownerStats: OwnerStats[];
+  items: ActionItem[];
 }
 
 type SortKey = "total" | "overdue" | "dueSoon7" | "dueSoon14";
 
-export default function OwnerView({ ownerStats }: Props) {
+export default function OwnerView({ ownerStats, items }: Props) {
   const router = useRouter();
   const [expandedOwner, setExpandedOwner] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("total");
@@ -169,6 +170,7 @@ export default function OwnerView({ ownerStats }: Props) {
       {selectedItem && (
         <ActionItemModal
           item={selectedItem}
+          allItems={items}
           onClose={() => setSelectedItem(null)}
           onSave={async (updated) => {
             const res = await fetch(`/api/actions/${updated.id}`, {

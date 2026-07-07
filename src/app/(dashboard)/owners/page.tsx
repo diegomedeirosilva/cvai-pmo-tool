@@ -10,5 +10,5 @@ export const revalidate = 0;
 export default async function OwnersPage() {
   const items = await db.select().from(actionItems).orderBy(asc(actionItems.sortOrder));
   const ownerStats = buildOwnerStats(items as unknown as ActionItem[]);
-  return <OwnerView ownerStats={ownerStats} />;
+  return <OwnerView ownerStats={ownerStats} items={items as unknown as ActionItem[]} />;
 }

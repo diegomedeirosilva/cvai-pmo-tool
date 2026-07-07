@@ -12,9 +12,12 @@ interface Props {
   predecessors?: ActionItem[];
   successors?: ActionItem[];
   allItems?: ActionItem[];
+  // Fields fixed by the launch context (e.g. "+ Add item" on a category card
+  // pre-sets workstream + category) — shown read-only instead of as dropdowns.
+  lockedFields?: Array<"workstream" | "category">;
 }
 
-export default function ActionItemModal({ item, onSave, onClose, onDelete, predecessors, successors, allItems }: Props) {
+export default function ActionItemModal({ item, onSave, onClose, onDelete, predecessors, successors, allItems, lockedFields }: Props) {
   const [form, setForm] = useState<ActionItem>(
     item || {
       id: "",
@@ -163,25 +166,45 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
         <div className="px-5 py-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Workstream">
-              <SelectOrNew
-                value={form.workstream}
-                options={workstreamOptions}
-                onChange={(v) =>
-                  // switching workstream invalidates the category (categories are per-workstream)
-                  setForm((prev) => (v === prev.workstream ? prev : { ...prev, workstream: v, category: "" }))
-                }
-                addLabel="＋ Add new workstream…"
-                placeholder="New workstream name"
-              />
+              {lockedFields?.includes("workstream") ? (
+                <input
+                  value={form.workstream}
+                  readOnly
+                  disabled
+                  title="Set by the card you're adding to"
+                  className="input bg-slate-100 text-slate-500 cursor-not-allowed"
+                />
+              ) : (
+                <SelectOrNew
+                  value={form.workstream}
+                  options={workstreamOptions}
+                  onChange={(v) =>
+                    // switching workstream invalidates the category (categories are per-workstream)
+                    setForm((prev) => (v === prev.workstream ? prev : { ...prev, workstream: v, category: "" }))
+                  }
+                  addLabel="＋ Add new workstream…"
+                  placeholder="New workstream name"
+                />
+              )}
             </Field>
             <Field label="Category">
-              <SelectOrNew
-                value={form.category}
-                options={categoryOptions}
-                onChange={(v) => update("category", v)}
-                addLabel="＋ Add new category…"
-                placeholder="New category name"
-              />
+              {lockedFields?.includes("category") ? (
+                <input
+                  value={form.category}
+                  readOnly
+                  disabled
+                  title="Set by the card you're adding to"
+                  className="input bg-slate-100 text-slate-500 cursor-not-allowed"
+                />
+              ) : (
+                <SelectOrNew
+                  value={form.category}
+                  options={categoryOptions}
+                  onChange={(v) => update("category", v)}
+                  addLabel="＋ Add new category…"
+                  placeholder="New category name"
+                />
+              )}
             </Field>
           </div>
 

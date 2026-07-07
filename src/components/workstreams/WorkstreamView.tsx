@@ -296,13 +296,14 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
         const succs = succIds.map((id) => itemMap.get(id)).filter(Boolean) as ActionItem[];
         return (
           <ActionItemModal
-            item={editItem.id ? editItem : null}
+            item={editItem}
             onSave={handleSaveItem}
             onClose={() => setEditItem(null)}
             onDelete={handleDelete}
             predecessors={pred ? [pred] : []}
             successors={succs}
             allItems={allItems || items}
+            lockedFields={editItem.id ? undefined : ["workstream", "category"]}
           />
         );
       })()}

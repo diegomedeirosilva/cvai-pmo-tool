@@ -60,17 +60,17 @@ Write two sections.
 
 progressUpdate:
 - ONE bullet per OPEN item above, reflecting the SUBSTANCE of its LATEST comment. Do not merge items. Do not skip an item because its comment seems minor.
-- If an item shows "(no note)", still write a bullet from its requirement + status + due date.
+- If an item shows "(no note)", still write a bullet from its requirement and owner — no plan stats.
 - ORDER: [NEW] items first, then Overdue, then At-risk, then On-track.
-- Telegraphic fragments, max ~12 words. Noun + status + date. Drop articles and obvious subjects. e.g. "Vendor SOW signed, kickoff 30 Jun" NOT "The vendor signed the SOW and we will kick off on June 30".
-- Surface concrete dates, %s, blockers, owners only where they add signal.
+- Telegraphic fragments, max ~12 words. Lead with the noun and the key development. Drop articles and obvious subjects. e.g. "Vendor SOW signed, kickoff 30 Jun" NOT "The vendor signed the SOW and we will kick off on June 30".
+- Surface blockers, owners and dates FROM THE COMMENTS where they add signal (a kickoff or submission date that is part of the story is substance).
 
 nextSteps:
 - 2-5 telegraphic bullets: the next concrete action for the open items, from the latest comments, owners, and due dates. Forward-looking only.
 
 HARD RULES:
 - NEVER write a bullet about a COMPLETED item or a past finished milestone with a date (e.g. "Procurement assessment complete Apr 4"). Excluded by design.
-- Do NOT write a count/rollup bullet (e.g. "3/9 complete") — the system adds it.
+- Do NOT write a count/rollup bullet (e.g. "3/9 complete") and do NOT append plan metadata to bullets — no status labels, no completion %, no "due <date>". The report already presents these visually next to each item.
 - Every bullet starts with "- " (dash space).
 
 Respond with ONLY a valid JSON object (no markdown, no preamble). Shape:

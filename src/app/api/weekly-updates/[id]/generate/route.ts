@@ -186,10 +186,11 @@ export async function POST(
           return updated;
         }
 
-        // ROLLUP-ONLY — deterministic single bullet, no AI
+        // ROLLUP-ONLY (completed work, no open items) — nothing to narrate; the
+        // report's task rows already present the counts/status visually.
         if (sp.mode === "rollup") {
           matched++;
-          const progressUpdate = `- ${sp.summaryLine}`;
+          const progressUpdate = "";
           const [updated] = await db
             .update(weeklyUpdateSections)
             .set({
@@ -204,16 +205,16 @@ export async function POST(
           return updated;
         }
 
-        // FULL-AI — prepend the deterministic rollup; never leave blank
-        const rollupBullet = `- ${sp.summaryLine}`;
+        // FULL-AI — substance bullets only; plan stats (counts, due dates) stay
+        // out of the text since the report shows them visually on each task row.
         let progressUpdate: string;
         let nextSteps: string;
         if (r.ok && r.result && r.result.progressUpdate) {
-          progressUpdate = spaceBullets(`${rollupBullet}\n${r.result.progressUpdate}`);
+          progressUpdate = spaceBullets(r.result.progressUpdate);
           nextSteps = spaceBullets(r.result.nextSteps);
         } else {
           failures.push(`${section.deliverable}: ${r.error || "empty AI result"}`);
-          progressUpdate = rollupBullet; // fallback so the category is never blank
+          progressUpdate = "";
           nextSteps = "";
         }
         matched++;

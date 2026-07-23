@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { ActionItem } from "@/types";
-import { STATUS_BG } from "@/lib/utils";
+import { STATUS_BG, statusLabel } from "@/lib/utils";
 import { computeStatus, timeBasedTarget } from "@/lib/dashboard";
 
 interface Props {
@@ -156,7 +156,7 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-          <h2 className="font-semibold text-slate-800">
+          <h2 className="font-semibold text-ink">
             {item?.id ? "Edit Action Item" : "Add Action Item"}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
@@ -239,7 +239,7 @@ export default function ActionItemModal({ item, onSave, onClose, onDelete, prede
             <Field label="Status (auto-computed)">
               <div className="flex items-center h-[38px]">
                 <span className={`px-2.5 py-1 rounded text-xs font-medium ${STATUS_BG[computeStatus(form)] || "bg-slate-100 text-slate-600"}`}>
-                  {computeStatus(form)}
+                  {statusLabel(computeStatus(form))}
                 </span>
               </div>
             </Field>

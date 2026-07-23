@@ -1,5 +1,5 @@
 import { ActionItem } from "@/types";
-import { formatDate, STATUS_COLORS } from "@/lib/utils";
+import { formatDate, STATUS_COLORS, statusLabel } from "@/lib/utils";
 import { computeStatus } from "@/lib/dashboard";
 
 interface Props {
@@ -12,9 +12,9 @@ export default function MilestonesCard({ milestones, onItemClick }: Props) {
   today.setHours(0, 0, 0, 0);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 h-full">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-card h-full">
       <div className="px-4 py-3 border-b border-slate-100">
-        <h3 className="font-medium text-slate-700 text-sm">Upcoming Milestones (14 days)</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-[1.5px] text-teal-700">Upcoming Milestones (14 days)</h3>
       </div>
       {milestones.length === 0 ? (
         <div className="px-4 py-6 text-center text-slate-400 text-sm">No items due in next 14 days</div>
@@ -58,7 +58,7 @@ export default function MilestonesCard({ milestones, onItemClick }: Props) {
                         color: STATUS_COLORS[status],
                       }}
                     >
-                      {status}
+                      {statusLabel(status)}
                     </div>
                   );
                 })()}

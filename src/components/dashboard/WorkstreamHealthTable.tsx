@@ -68,16 +68,16 @@ export default function WorkstreamHealthTable({ workstreams, items }: Props) {
   }, [items]);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100">
-        <h3 className="font-medium text-slate-700 text-sm">Workstream Health</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-[1.5px] text-teal-700">Workstream Health</h3>
       </div>
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-slate-50">
             <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide">Workstream</th>
             <th className="text-left px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide">Progress</th>
-            <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">Done</th>
+            <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">Closed</th>
             <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">On-track</th>
             <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">At-risk</th>
             <th className="text-center px-3 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-16">Overdue</th>

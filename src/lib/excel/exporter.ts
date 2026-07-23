@@ -218,7 +218,7 @@ export async function exportAnalytics(
 
   // === Sheet 2: Summary by Workstream ===
   const wsSheet = workbook.addWorksheet("By Workstream");
-  wsSheet.addRow(["Workstream", "Total", "Completed", "On-track", "At-risk", "Overdue", "Completion %"]).font = { bold: true };
+  wsSheet.addRow(["Workstream", "Total", "Closed", "On-track", "At-risk", "Overdue", "Completion %"]).font = { bold: true };
   const wsMap = new Map<string, Record<string, number>>();
   for (const item of items) {
     if (!wsMap.has(item.workstream)) {
@@ -240,7 +240,7 @@ export async function exportAnalytics(
 
   // === Sheet 3: Summary by Owner ===
   const ownerSheet = workbook.addWorksheet("By Owner");
-  ownerSheet.addRow(["Owner", "Total", "Completed", "On-track", "At-risk", "Overdue"]).font = { bold: true };
+  ownerSheet.addRow(["Owner", "Total", "Closed", "On-track", "At-risk", "Overdue"]).font = { bold: true };
   const ownerMap = new Map<string, Record<string, number>>();
   for (const item of items) {
     const owners = item.owner.includes("/")

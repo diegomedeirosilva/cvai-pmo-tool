@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   ComposedChart, Area, CartesianGrid, XAxis, YAxis, Legend,
 } from "recharts";
-import { HEALTH_COLORS, HEALTH_LABELS, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { computeStatus, computeHealth, rollupStatus } from "@/lib/dashboard";
 import WorkstreamHealthTable from "./WorkstreamHealthTable";
 import MilestonesCard from "./MilestonesCard";
@@ -138,14 +138,12 @@ export default function DashboardClient({ summary, items }: Props) {
   const { total, notStarted, completed, onTrack, atRisk, overdue } = liveStats;
   const pieData = [
     { name: "Not Started", value: notStarted, color: "#94A3B8" },
-    { name: "Completed", value: completed, color: "#3B82F6" },
+    { name: "Closed", value: completed, color: "#3B82F6" },
     { name: "On-track", value: onTrack, color: "#22C55E" },
     { name: "At-risk", value: atRisk, color: "#F59E0B" },
     { name: "Overdue", value: overdue, color: "#EF4444" },
   ].filter((d) => d.value > 0);
 
-  const healthColor = HEALTH_COLORS[liveStats.health];
-  const healthLabel = HEALTH_LABELS[liveStats.health];
   // Countdown to the PROJECTED Day-1 (latest plan end) — computed live so it
   // moves the moment an edit changes the plan; server value as fallback.
   const daysToDay1 = useMemo(() => {
@@ -164,7 +162,7 @@ export default function DashboardClient({ summary, items }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">{summary.project.title}</h1>
+          <h1 className="text-xl font-semibold text-ink">{summary.project.title}</h1>
           <p className="text-slate-500 text-sm mt-0.5">{summary.project.description}</p>
         </div>
         <div className="text-xs text-slate-400">
@@ -174,58 +172,56 @@ export default function DashboardClient({ summary, items }: Props) {
 
       {/* Row 1: countdown+health + pie metrics + workstream health table */}
       <div className="grid grid-cols-12 gap-4">
-        {/* Countdown + Health */}
-        <div className="col-span-2 flex flex-col gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Days to Day-1</div>
-            <div className="text-4xl font-bold tabular-nums" style={{ color: countdownColor }}>
-              {daysToDay1}
+        {/* Projected Day-1 countdown */}
+        <div className="col-span-2">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card h-full flex flex-col">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h3 className="text-[11px] font-bold uppercase tracking-[1.5px] text-teal-700">Projected Day-1</h3>
             </div>
-            <div className="text-xs text-slate-400 mt-1">
-              Projected · {new Date((projection ? projection.latest : summary.project.day1TargetDate) + "T00:00:00").toLocaleDateString("en-GB", {
-                day: "numeric", month: "short", year: "numeric",
-              })}
-            </div>
-            <div className="mt-2 pt-2 border-t border-slate-100 w-full">
-              <div className="text-slate-400 uppercase tracking-wider" style={{ fontSize: 9 }}>Original target</div>
-              <div className="text-sm font-semibold text-slate-700 tabular-nums mt-0.5">
-                {new Date(summary.project.day1TargetDate + "T00:00:00").toLocaleDateString("en-GB", {
-                  day: "numeric", month: "short", year: "numeric",
-                })}
-              </div>
-              {projection && (
-                <div className="font-semibold mt-0.5" style={{ color: slipColor, fontSize: 11 }}>
-                  {projection.slip > 0
-                    ? `▲ slipped ${projection.slip}d`
-                    : projection.slip < 0
-                    ? `▼ ${-projection.slip}d ahead`
-                    : "On target"}
+            <div className="p-4 flex flex-col items-center text-center flex-1">
+              <div className="my-auto w-full py-2">
+                <div className="text-[27px] leading-tight font-bold tabular-nums" style={{ color: countdownColor }}>
+                  {formatDate(projection ? projection.latest : summary.project.day1TargetDate)}
                 </div>
-              )}
+                <div className="flex items-center justify-center gap-1.5 mt-4 text-[13px] text-slate-600">
+                  <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" />
+                    </svg>
+                  </span>
+                  <span className="font-medium tabular-nums">
+                    {daysToDay1 >= 0 ? `${daysToDay1} days to go` : `${-daysToDay1} days past`}
+                  </span>
+                </div>
+                {projection && (
+                  <div className="flex items-center justify-center gap-1 mt-4 text-[10px] font-medium" style={{ color: slipColor }}>
+                    <svg className="flex-shrink-0" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="9" /><line x1="12" y1="7.5" x2="12" y2="13" /><circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
+                    </svg>
+                    {projection.slip > 0
+                      ? `${projection.slip} days late`
+                      : projection.slip < 0
+                      ? `${-projection.slip} days early`
+                      : "On target"}
+                  </div>
+                )}
+              </div>
+              <div className="pt-3 border-t border-slate-100 w-full">
+                <div className="text-slate-400 uppercase tracking-wider" style={{ fontSize: 9 }}>Original target</div>
+                <div className="text-sm font-semibold text-slate-600 tabular-nums mt-0.5">{formatDate(summary.project.day1TargetDate)}</div>
+              </div>
             </div>
-          </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col items-center justify-center text-center flex-1">
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Overall Health</div>
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center mb-1"
-              style={{ backgroundColor: healthColor + "20", border: `3px solid ${healthColor}` }}
-            >
-              <div className="w-5 h-5 rounded-full" style={{ backgroundColor: healthColor }} />
-            </div>
-            <div className="text-xs font-semibold" style={{ color: healthColor }}>{healthLabel}</div>
           </div>
         </div>
 
         {/* Key Metrics — donut */}
         <div className="col-span-3">
-          <div className="bg-white rounded-xl border border-slate-200 p-3 h-full flex flex-col">
-            <div className="flex items-baseline justify-between mb-1">
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Key Metrics</div>
-              <div className="text-xs text-slate-400">
-                <span className="font-bold text-slate-700 tabular-nums">{total}</span> total
-              </div>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card h-full flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h3 className="text-[11px] font-bold uppercase tracking-[1.5px] text-teal-700">Key Metrics</h3>
             </div>
-            <div className="w-full flex justify-center" style={{ height: 180 }}>
+            <div className="p-3 flex flex-col flex-1">
+            <div className="w-full flex justify-center relative" style={{ height: 180 }}>
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={2} dataKey="value">
@@ -242,11 +238,15 @@ export default function DashboardClient({ summary, items }: Props) {
                   />
                 </PieChart>
               </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <div className="text-xl font-bold text-slate-700 tabular-nums leading-none">{total}</div>
+                <div className="text-slate-400 uppercase tracking-wider mt-1" style={{ fontSize: 9 }}>total</div>
+              </div>
             </div>
             <div className="flex items-center justify-between mt-2 gap-1">
               {[
                 { label: "Not Started", value: notStarted, color: "#94A3B8" },
-                { label: "Done", value: completed, color: "#3B82F6" },
+                { label: "Closed", value: completed, color: "#3B82F6" },
                 { label: "On-track", value: onTrack, color: "#22C55E" },
                 { label: "At-risk", value: atRisk, color: "#F59E0B" },
                 { label: "Overdue", value: overdue, color: "#EF4444" },
@@ -256,6 +256,7 @@ export default function DashboardClient({ summary, items }: Props) {
                   <div className="text-slate-400 leading-tight text-center" style={{ fontSize: 9 }}>{label}</div>
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </div>
@@ -273,8 +274,8 @@ export default function DashboardClient({ summary, items }: Props) {
       </div>
 
       {/* Row 3: Status Distribution Over Time */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h2 className="text-sm font-medium text-slate-700 mb-4">Status Distribution Over Time</h2>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
+        <h2 className="text-[11px] font-bold uppercase tracking-[1.5px] text-teal-700 mb-4">Status Distribution Over Time</h2>
         {chartData.length < 2 ? (
           <p className="text-xs text-slate-400 py-8 text-center">
             Not enough history yet — trend points build up from Excel uploads. The latest point always reflects your current data.
@@ -295,7 +296,7 @@ export default function DashboardClient({ summary, items }: Props) {
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {/* Stacked areas: bottom → top: Completed, On-track, At-risk, Overdue, Not Started */}
-              <Area type="monotone" dataKey="completed" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="Completed" />
+              <Area type="monotone" dataKey="completed" stackId="1" fill="#3B82F6" stroke="#3B82F6" name="Closed" />
               <Area type="monotone" dataKey="onTrack" stackId="1" fill="#22C55E" stroke="#22C55E" name="On-track" />
               <Area type="monotone" dataKey="atRisk" stackId="1" fill="#F59E0B" stroke="#F59E0B" name="At-risk" />
               <Area type="monotone" dataKey="overdue" stackId="1" fill="#EF4444" stroke="#EF4444" name="Overdue" />

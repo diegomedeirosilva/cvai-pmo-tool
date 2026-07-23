@@ -37,6 +37,12 @@ export const STATUS_BG: Record<string, string> = {
   "Overdue": "bg-red-100 text-red-700",
 };
 
+// Display label for a status value. "Completed" stays the internal value
+// (DB, Excel round-trip, status logic all key off it); users see "Closed".
+export function statusLabel(status: string): string {
+  return status === "Completed" ? "Closed" : status;
+}
+
 export const SEVERITY_COLORS: Record<string, string> = {
   Critical: "bg-red-600 text-white",
   High: "bg-red-100 text-red-700",

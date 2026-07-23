@@ -75,7 +75,7 @@ export default function RiskRegister({ initialRisks, items }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">Risk Register</h1>
+          <h1 className="text-xl font-semibold text-ink">Risk Register</h1>
           <p className="text-slate-500 text-sm mt-0.5">
             {openCount} open risks · {highCount} critical/high
           </p>
@@ -158,7 +158,7 @@ export default function RiskRegister({ initialRisks, items }: Props) {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
             <p className="text-lg mb-2">No risks matching filters</p>

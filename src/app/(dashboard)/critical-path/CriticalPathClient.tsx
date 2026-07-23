@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import { ActionItem, Dependency, Project } from "@/types";
-import { STATUS_COLORS, STATUS_BG, formatDate, formatPct } from "@/lib/utils";
+import { STATUS_COLORS, STATUS_BG, formatDate, formatPct, statusLabel } from "@/lib/utils";
 import { computeStatus } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
@@ -197,7 +197,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
       <div className="px-6 py-4 border-b border-slate-200 bg-white flex-shrink-0">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-slate-800">Critical Path</h1>
+            <h1 className="text-lg font-semibold text-ink">Critical Path</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               Zero-float activities — any delay pushes past Day-1
             </p>
@@ -246,7 +246,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
                         {item.duration}d · {item.owner.split("/")[0]}
                       </div>
                       <div className="mt-1 px-1.5 py-0.5 rounded text-white text-center w-full" style={{ backgroundColor: color, fontSize: 9 }}>
-                        {status}
+                        {statusLabel(status)}
                       </div>
                       {f < 0 && (
                         <div className="mt-0.5 text-red-600 font-bold text-center" style={{ fontSize: 9 }}>
@@ -271,7 +271,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
           {/* Labels */}
           <div className="flex-shrink-0 bg-white border-r border-slate-200" style={{ width: LABEL_WIDTH }}>
             <div style={{ height: HEADER_HEIGHT }} className="border-b border-slate-200 flex items-end px-3 pb-2">
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">All Critical Items ({criticalItems.length})</span>
+              <span className="text-[11px] font-bold text-teal-700 uppercase tracking-[1.5px]">All Critical Items ({criticalItems.length})</span>
             </div>
             {criticalItems.map((item) => {
               const status = computeStatus(item);
@@ -361,7 +361,7 @@ export default function CriticalPathClient({ items, dependencies: initialDeps, p
         {/* Detail table — ALL critical items */}
         <div className="px-6 py-4">
           <h2 className="text-sm font-semibold text-slate-700 mb-3">Critical Items — sorted by start date</h2>
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">

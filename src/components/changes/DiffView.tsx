@@ -66,8 +66,8 @@ export default function DiffView({ uploads }: Props) {
   if (uploads.length < 1) {
     return (
       <div className="p-6">
-        <h1 className="text-xl font-semibold text-slate-800 mb-1">Changes</h1>
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center mt-4">
+        <h1 className="text-xl font-semibold text-ink mb-1">Changes</h1>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-12 text-center mt-4">
           <p className="text-slate-500 text-sm">Upload at least two versions of the workplan to see changes between them.</p>
         </div>
       </div>
@@ -81,12 +81,12 @@ export default function DiffView({ uploads }: Props) {
   return (
     <div className="p-6 space-y-4 max-w-[1400px]">
       <div>
-        <h1 className="text-xl font-semibold text-slate-800">Changes</h1>
+        <h1 className="text-xl font-semibold text-ink">Changes</h1>
         <p className="text-slate-500 text-sm mt-0.5">Compare action items between uploads</p>
       </div>
 
       {/* Selectors */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4">
         <div className="grid grid-cols-12 gap-4 items-end">
           <div className="col-span-5">
             <label className="block text-xs font-medium text-slate-600 mb-1">Before (older)</label>
@@ -148,7 +148,7 @@ export default function DiffView({ uploads }: Props) {
           </div>
 
           {/* Diff table */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
             {filtered.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-sm">
                 {diff.summary.added + diff.summary.removed + diff.summary.modified === 0

@@ -64,7 +64,7 @@ export default function ReportsPage() {
 
   return (
     <div className="p-6 max-w-2xl">
-      <h1 className="text-xl font-semibold text-slate-800 mb-1">Reports & Exports</h1>
+      <h1 className="text-xl font-semibold text-ink mb-1">Reports & Exports</h1>
       <p className="text-slate-500 text-sm mb-6">Download structured data for reporting and presentations.</p>
 
       <div className="space-y-4">
@@ -149,13 +149,13 @@ function ExportCard({
   buttonLabel?: string;
 }) {
   return (
-    <div className={`bg-white rounded-xl border border-slate-200 p-5 ${disabled ? "opacity-50" : ""}`}>
+    <div className={`bg-white rounded-xl border border-slate-200 shadow-card p-5 ${disabled ? "opacity-50" : ""}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <span className="text-2xl">{icon}</span>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-slate-800 text-sm">{title}</h3>
+              <h3 className="font-semibold text-ink text-sm">{title}</h3>
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${badgeColor}`}>{badge}</span>
             </div>
             <p className="text-slate-500 text-sm">{description}</p>

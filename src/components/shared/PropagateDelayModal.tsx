@@ -38,7 +38,7 @@ export default function PropagateDelayModal({ item, successorCount, onConfirm, o
         className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-sm mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-semibold text-slate-800 mb-4">Reschedule Downstream Items</h2>
+        <h2 className="text-base font-semibold text-ink mb-4">Reschedule Downstream Items</h2>
 
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 text-sm">
           <p className="font-medium text-amber-900">{item.requirement || item.action}</p>

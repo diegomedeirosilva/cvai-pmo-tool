@@ -6,8 +6,11 @@
 
 :root {
   --navy: #1E3A5F;
-  --background: #F8F9FA;
-  --foreground: #0F172A;
+  /* Report design-system tokens (mirrors html-report.ts) */
+  --ink: #0B2545;
+  --teal: #1FC6B8;
+  --background: #F4F6F8;
+  --foreground: #0B2545;
 }
 
 * {

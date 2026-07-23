@@ -202,7 +202,7 @@ export default function WeeklyUpdatePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">Weekly Status Update</h1>
+          <h1 className="text-xl font-semibold text-ink">Weekly Status Update</h1>
           <p className="text-slate-500 text-sm mt-0.5">
             Consolidate progress, next steps, and client requests
           </p>
@@ -242,7 +242,7 @@ export default function WeeklyUpdatePage() {
 
       {/* No update selected */}
       {!currentUpdate ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-12 text-center">
           <div className="text-slate-400 text-sm mb-4">
             {hasCurrentWeek
               ? "Select a week from the dropdown above."
@@ -318,7 +318,7 @@ export default function WeeklyUpdatePage() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">

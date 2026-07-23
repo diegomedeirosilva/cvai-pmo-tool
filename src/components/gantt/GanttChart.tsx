@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { ActionItem, Dependency, Project, Status } from "@/types";
-import { STATUS_COLORS, formatDate, formatPct } from "@/lib/utils";
+import { STATUS_COLORS, formatDate, formatPct, statusLabel } from "@/lib/utils";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 import { computeCascade } from "@/lib/cascade";
 import { rollupStatus, timeBasedTarget } from "@/lib/dashboard";
@@ -523,7 +523,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
     <div className="flex flex-col h-screen">
       {/* Toolbar */}
       <div className="flex items-center gap-4 px-6 py-3 border-b border-slate-200 bg-white flex-shrink-0 flex-wrap">
-        <h1 className="text-base font-semibold text-slate-800">Gantt Chart</h1>
+        <h1 className="text-base font-semibold text-ink">Gantt Chart</h1>
 
         <div className="flex items-center gap-2 ml-4">
           <span className="text-xs text-slate-500">Group:</span>
@@ -584,7 +584,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
           {Object.entries(STATUS_COLORS).map(([status, color]) => (
             <div key={status} className="flex items-center gap-1">
               <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
-              <span className="text-xs text-slate-500">{status}</span>
+              <span className="text-xs text-slate-500">{statusLabel(status)}</span>
             </div>
           ))}
           <div className="flex items-center gap-1">
@@ -789,7 +789,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                     )}
                     {width > 60 && (
                       <text x={x + 4} y={y + BAR_HEIGHT / 2 + 4} fontSize={10} fill="white" style={{ pointerEvents: "none" }}>
-                        {stats.completed}/{stats.total} completed
+                        {stats.completed}/{stats.total} closed
                       </text>
                     )}
                   </g>
@@ -848,7 +848,7 @@ export default function GanttChart({ items: initialItems, dependencies: initialD
                 className="absolute z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs max-w-xs pointer-events-none"
                 style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}
               >
-                <p className="font-semibold text-slate-800 mb-1">
+                <p className="font-semibold text-ink mb-1">
                   {tooltip.item.requirement || tooltip.item.action.slice(0, 60)}
                 </p>
                 <div className="space-y-0.5 text-slate-600">

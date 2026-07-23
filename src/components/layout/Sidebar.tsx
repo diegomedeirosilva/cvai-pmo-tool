@@ -27,12 +27,12 @@ export default function Sidebar({ workstreams }: SidebarProps) {
   }
 
   return (
-    <aside className="w-56 bg-[#1E3A5F] flex flex-col h-screen flex-shrink-0">
+    <aside className="w-56 bg-gradient-to-b from-[#04101F] via-[#061B30] to-[#081F38] border-r border-white/10 flex flex-col h-screen flex-shrink-0">
       {/* Logo */}
-      <div className="px-4 py-5 border-b border-blue-800">
+      <div className="px-4 py-5 border-b border-white/10">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/cva-logo-white.png" alt="CVA" className="w-24 h-auto" />
-        <div className="text-blue-300 text-xs mt-2">Project Crystal · PMO</div>
+        <div className="text-teal-500 text-[10px] font-semibold uppercase tracking-[2px] mt-2.5">Project Crystal · PMO</div>
       </div>
 
       {/* Nav */}
@@ -44,8 +44,8 @@ export default function Sidebar({ workstreams }: SidebarProps) {
             className={cn(
               "flex items-center gap-2.5 px-4 py-2 text-sm transition-colors",
               pathname === item.href
-                ? "bg-blue-700 text-white font-medium"
-                : "text-blue-200 hover:bg-blue-800 hover:text-white"
+                ? "bg-white/[0.07] text-white font-medium shadow-[inset_3px_0_0_0_#1FC6B8]"
+                : "text-white/55 hover:bg-white/[0.04] hover:text-white"
             )}
           >
             <span className="text-xs opacity-70 w-4 text-center">{item.icon}</span>
@@ -54,8 +54,8 @@ export default function Sidebar({ workstreams }: SidebarProps) {
         ))}
 
         {/* Workstreams section */}
-        <div className="mt-3 px-4 pt-3 border-t border-blue-800">
-          <div className="text-blue-400 text-xs uppercase tracking-wider mb-2 font-medium">
+        <div className="mt-3 px-4 pt-3 border-t border-white/10">
+          <div className="text-teal-500 text-[10px] uppercase tracking-[2px] mb-2 font-semibold">
             Workstreams
           </div>
           {workstreams.map((ws) => (
@@ -65,11 +65,11 @@ export default function Sidebar({ workstreams }: SidebarProps) {
               className={cn(
                 "flex items-center gap-2 px-2 py-1.5 text-xs rounded transition-colors",
                 pathname === `/workstreams/${encodeURIComponent(ws)}`
-                  ? "bg-blue-700 text-white"
-                  : "text-blue-300 hover:bg-blue-800 hover:text-white"
+                  ? "bg-white/[0.07] text-white"
+                  : "text-white/50 hover:bg-white/[0.04] hover:text-white"
               )}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500/80 flex-shrink-0" />
               {ws}
             </Link>
           ))}
@@ -77,10 +77,10 @@ export default function Sidebar({ workstreams }: SidebarProps) {
       </nav>
 
       {/* Bottom: logout */}
-      <div className="px-4 py-3 border-t border-blue-800">
+      <div className="px-4 py-3 border-t border-white/10">
         <button
           onClick={handleLogout}
-          className="text-blue-300 hover:text-white text-xs transition-colors"
+          className="text-white/45 hover:text-white text-xs transition-colors"
         >
           Sign out
         </button>

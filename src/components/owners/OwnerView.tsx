@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActionItem, OwnerStats } from "@/types";
-import { STATUS_COLORS, formatDate } from "@/lib/utils";
+import { STATUS_COLORS, formatDate, statusLabel } from "@/lib/utils";
 import { averageCompletion, computeGroupStatus, computeStatus } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
@@ -25,7 +25,7 @@ export default function OwnerView({ ownerStats, items }: Props) {
     <div className="p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">Owner Workload</h1>
+          <h1 className="text-xl font-semibold text-ink">Owner Workload</h1>
           <p className="text-slate-500 text-sm mt-0.5">{ownerStats.length} owners tracked</p>
         </div>
         <div className="flex items-center gap-2">
@@ -56,7 +56,7 @@ export default function OwnerView({ ownerStats, items }: Props) {
           const ownerColor = STATUS_COLORS[computeGroupStatus(owner.items)];
 
           return (
-            <div key={owner.owner} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div key={owner.owner} className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
               {/* Owner header */}
               <div
                 className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-slate-50"
@@ -100,7 +100,7 @@ export default function OwnerView({ ownerStats, items }: Props) {
                 <div className="flex items-center gap-5 text-center flex-shrink-0">
                   <Stat label="Total" value={owner.total} color="text-slate-700" />
                   <Stat label="Not Started" value={owner.notStarted} color="text-slate-400" />
-                  <Stat label="Done" value={owner.completed} color="text-blue-600" />
+                  <Stat label="Closed" value={owner.completed} color="text-blue-600" />
                   <Stat label="On-track" value={owner.onTrack} color="text-green-600" />
                   <Stat label="Due 7d" value={owner.dueSoon7} color="text-amber-600" />
                   <Stat label="Due 14d" value={owner.dueSoon14} color="text-slate-500" />
@@ -148,7 +148,7 @@ export default function OwnerView({ ownerStats, items }: Props) {
                                     color: STATUS_COLORS[status],
                                   }}
                                 >
-                                  {status}
+                                  {statusLabel(status)}
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-slate-500">{formatDate(item.endDate)}</td>

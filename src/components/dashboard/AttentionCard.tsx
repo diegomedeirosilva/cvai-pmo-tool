@@ -18,9 +18,9 @@ export default function AttentionCard({ items, onItemClick }: Props) {
     .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 h-full">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-card h-full">
       <div className="px-4 py-3 border-b border-slate-100">
-        <h3 className="font-medium text-slate-700 text-sm">
+        <h3 className="text-[11px] font-bold uppercase tracking-[1.5px] text-teal-700">
           Overdue
           <span className="ml-1.5 text-slate-400 font-normal">({attentionItems.length})</span>
         </h3>

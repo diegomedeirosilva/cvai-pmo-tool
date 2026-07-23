@@ -10,6 +10,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Report design-system tokens (mirrors :root vars in src/lib/reports/html-report.ts)
+        ink: {
+          DEFAULT: "#0B2545",
+          soft: "#46586C",
+          faint: "#8A98A8",
+        },
+        teal: {
+          400: "#3FD9CC",
+          500: "#1FC6B8",
+          600: "#1AAEAC",
+          700: "#11888B",
+        },
+        rule: "#DCE3E8",
         navy: {
           DEFAULT: "#1E3A5F",
           50: "#EBF0F7",
@@ -33,6 +46,9 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"],
+      },
+      boxShadow: {
+        card: "0 6px 18px rgba(11,37,69,.05)",
       },
     },
   },

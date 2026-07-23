@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { statusLabel } from "@/lib/utils";
 
 export default function EmptyState() {
   const [file, setFile] = useState<File | null>(null);
@@ -54,12 +55,12 @@ export default function EmptyState() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-8">
       <div className="max-w-lg w-full">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-slate-800">Welcome to PMO Dashboard</h1>
+          <h1 className="text-2xl font-semibold text-ink">Welcome to PMO Dashboard</h1>
           <p className="text-slate-500 mt-2">Upload your Excel workplan to get started.</p>
         </div>
 
         {!preview ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
             <div
               className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 transition-colors"
               onDragOver={(e) => e.preventDefault()}
@@ -99,8 +100,8 @@ export default function EmptyState() {
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-            <h2 className="font-semibold text-slate-800 mb-4">✓ Preview</h2>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6">
+            <h2 className="font-semibold text-ink mb-4">✓ Preview</h2>
             <div className="space-y-2 text-sm text-slate-600">
               <div className="flex justify-between py-1.5 border-b border-slate-100">
                 <span>Project</span>
@@ -116,7 +117,7 @@ export default function EmptyState() {
               </div>
               {Object.entries(preview.statusCounts).map(([status, count]) => (
                 <div key={status} className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span>{status}</span>
+                  <span>{statusLabel(status)}</span>
                   <span className="font-medium text-slate-800">{count}</span>
                 </div>
               ))}

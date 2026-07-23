@@ -120,10 +120,10 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
 
   return (
     <div className="p-6 max-w-2xl space-y-6">
-      <h1 className="text-xl font-semibold text-slate-800">Settings</h1>
+      <h1 className="text-xl font-semibold text-ink">Settings</h1>
 
       {/* Project Metadata */}
-      <section className="bg-white rounded-xl border border-slate-200 p-5">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h2 className="font-semibold text-slate-700 mb-4">Project Metadata</h2>
         <div className="space-y-3">
           <div>
@@ -152,7 +152,7 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
       </section>
 
       {/* Upload new workplan */}
-      <section className="bg-white rounded-xl border border-slate-200 p-5">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h2 className="font-semibold text-slate-700 mb-1">Upload New Workplan</h2>
         <p className="text-slate-400 text-xs mb-4">Uploading a new file will replace the current data (previous data is archived).</p>
 
@@ -203,7 +203,7 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
 
       {/* Upload History */}
       {uploadHistory.length > 0 && (
-        <section className="bg-white rounded-xl border border-slate-200 p-5">
+        <section className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h2 className="font-semibold text-slate-700 mb-3">Upload History</h2>
           <table className="w-full text-sm">
             <thead>
@@ -243,7 +243,7 @@ export default function SettingsClient({ project, uploadHistory }: Props) {
       )}
 
       {/* Baseline */}
-      <section className="bg-white rounded-xl border border-slate-200 p-5">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
         <h2 className="font-semibold text-slate-700 mb-1">Set Schedule Baseline</h2>
         <p className="text-slate-400 text-xs mb-4">
           Anchors current start/end dates as the original plan baseline. Items rescheduled after this will show slippage in the Gantt chart. Only affects items without an existing baseline.

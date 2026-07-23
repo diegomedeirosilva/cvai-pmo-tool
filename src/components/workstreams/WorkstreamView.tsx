@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { ActionItem, Dependency } from "@/types";
-import { STATUS_COLORS, formatDate } from "@/lib/utils";
+import { STATUS_COLORS, formatDate, statusLabel } from "@/lib/utils";
 import { averageCompletion, computeGroupStatus, computeStatus, timeBasedTarget } from "@/lib/dashboard";
 import ActionItemModal from "@/components/shared/ActionItemModal";
 
@@ -127,7 +127,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">{workstream}</h1>
+          <h1 className="text-xl font-semibold text-ink">{workstream}</h1>
           <div className="flex items-center gap-3 mt-2">
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
@@ -137,7 +137,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
               {wsStatus}
             </span>
             <span className="text-sm text-slate-500">
-              {stats.completed}/{stats.total} completed · {stats.overdue} overdue
+              {stats.completed}/{stats.total} closed · {stats.overdue} overdue
             </span>
           </div>
           {/* Progress */}
@@ -155,7 +155,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
         {/* Stats pills */}
         <div className="flex gap-2 flex-wrap justify-end">
           <StatPill label="Not Started" value={stats.notStarted} color="text-slate-500" bg="bg-slate-50" />
-          <StatPill label="Completed" value={stats.completed} color="text-blue-600" bg="bg-blue-50" />
+          <StatPill label="Closed" value={stats.completed} color="text-blue-600" bg="bg-blue-50" />
           <StatPill label="On-track" value={stats.onTrack} color="text-green-600" bg="bg-green-50" />
           <StatPill label="At-risk" value={stats.atRisk} color="text-amber-600" bg="bg-amber-50" />
           <StatPill label="Overdue" value={stats.overdue} color="text-red-600" bg="bg-red-50" />
@@ -171,7 +171,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
           const catColor = STATUS_COLORS[computeGroupStatus(catItems)];
 
           return (
-            <div key={category} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div key={category} className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
               {/* Category header */}
               <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <div>
@@ -263,7 +263,7 @@ export default function WorkstreamView({ workstream, items: initialItems, catego
                               color: STATUS_COLORS[status],
                             }}
                           >
-                            {status}
+                            {statusLabel(status)}
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">

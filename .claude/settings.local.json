@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Bash(git commit:*)",
+      "Bash(find \"/c/Users/Diego Silva/cvai-pmo-tool/src/app/\\(dashboard\\)\" -type f -name \"*.tsx\")",
+      "Bash(git add \"src/app/\\(dashboard\\)/layout.tsx\" \"src/components/layout/Sidebar.tsx\" \"src/lib/excel/parser.ts\" \"Maaden - JV Readiness Plan v7.xlsx\")",
+      "Bash(git rm \"Maaden - JV Readiness Plan v6.xlsx\")",
+      "Bash(node migrate-schema.mjs)"
     ]
   }
 }

@@ -1,5 +1,6 @@
 import { DashboardSummary, Risk, ActionItem } from "@/types";
 import { computeStatus, rollupStatus, computeGroupStatus, averageCompletion } from "@/lib/dashboard";
+import { statusLabel } from "@/lib/utils";
 import { CVA_LOGO_DATA_URI } from "./logo";
 
 // ---- Input shape -----------------------------------------------------------
@@ -38,11 +39,6 @@ const STATUS_ORDER: Record<string, number> = {
   "Not Started": 3,
   Completed: 4,
 };
-const RAG: Record<string, { color: string; label: string }> = {
-  Green: { color: "#22C55E", label: "On Track" },
-  Amber: { color: "#F59E0B", label: "At Risk" },
-  Red: { color: "#EF4444", label: "Critical" },
-};
 
 // ---- Small helpers ---------------------------------------------------------
 
@@ -75,11 +71,11 @@ function bulletList(text: string, cls = ""): string {
 
 function statusPill(status: string): string {
   const c = STATUS_COLOR[status] || "#94A3B8";
-  return `<span class="pill" style="color:${c};background:${c}1A;"><span class="pdot" style="background:${c}"></span>${esc(status)}</span>`;
+  return `<span class="pill" style="color:${c};background:${c}1A;"><span class="pdot" style="background:${c}"></span>${esc(statusLabel(status))}</span>`;
 }
 function statusBadge(status: string): string {
   const color = STATUS_COLOR[status] || "#94A3B8";
-  return `<span class="rag"><span class="ragdot" style="background:${color}"></span>${status}</span>`;
+  return `<span class="rag"><span class="ragdot" style="background:${color}"></span>${statusLabel(status)}</span>`;
 }
 function progressBar(p: number, color = "#1FC6B8"): string {
   const w = Math.max(0, Math.min(100, p));
@@ -114,25 +110,31 @@ function titleWithBreak(title: string): string {
 
 // ---- Gantt timeline helpers ------------------------------------------------
 
-const G_LABEL = 250, G_MIN_PPD = 2, G_MAX_PPD = 8; // label-col width (px) + zoom clamp; row/bar sizes live in CSS
+const G_LABEL = 330, G_MIN_PPD = 2, G_MAX_PPD = 8; // label-col width (px, mirrored in .glabel CSS) + zoom clamp
 const DAY_MS = 86400000;
 
-type GScale = { startMs: number; endMs: number; totalDays: number; ppd: number; chartWidth: number; day1Ms: number | null; forecastMs: number | null };
+type GScale = { startMs: number; endMs: number; totalDays: number; ppd: number; day1Ms: number | null; forecastMs: number | null };
 
 function gDate(s: string): Date | null {
   if (!s) return null;
   const d = new Date(s + "T00:00:00");
   return isNaN(d.getTime()) ? null : d;
 }
-function msToX(ms: number, sc: GScale): number {
-  return Math.ceil((ms - sc.startMs) / DAY_MS) * sc.ppd;
+// Positions are emitted in DAY units via calc(N * var(--ppd)); the viewer's
+// sizeGantt() sets --ppd from the real container width so the chart fills the
+// slide on any screen (sc.ppd is only the no-JS fallback).
+function msToDay(ms: number, sc: GScale): number {
+  return Math.ceil((ms - sc.startMs) / DAY_MS);
 }
-function dateToX(dateStr: string, sc: GScale): number | null {
+function dateToDay(dateStr: string, sc: GScale): number | null {
   const d = gDate(dateStr);
-  return d ? msToX(d.getTime(), sc) : null;
+  return d ? msToDay(d.getTime(), sc) : null;
 }
-function clampX(x: number, sc: GScale): number {
-  return Math.max(0, Math.min(sc.chartWidth, x));
+function clampDay(x: number, sc: GScale): number {
+  return Math.max(0, Math.min(sc.totalDays, x));
+}
+function gx(days: number): string {
+  return `calc(${days} * var(--ppd))`;
 }
 
 function timeScale(items: ActionItem[], day1Target: string): GScale {
@@ -148,10 +150,9 @@ function timeScale(items: ActionItem[], day1Target: string): GScale {
   const startMs = start.getTime();
   if (endMs <= startMs) endMs = startMs + 30 * DAY_MS;
   const totalDays = Math.ceil((endMs - startMs) / DAY_MS);
-  const available = 1440 - 250 - 128 - G_LABEL; // viewport − rail − padding − label col
+  const available = 1440 - 128 - G_LABEL; // assumed viewport − slide padding − label col (sizeGantt refits to the real width)
   const ppd = Math.max(G_MIN_PPD, Math.min(G_MAX_PPD, available / totalDays));
-  const chartWidth = Math.round(totalDays * ppd);
-  return { startMs, endMs, totalDays, ppd, chartWidth, day1Ms: day1 ? day1.getTime() : null, forecastMs };
+  return { startMs, endMs, totalDays, ppd, day1Ms: day1 ? day1.getTime() : null, forecastMs };
 }
 
 function monthLines(sc: GScale): { x: number; label: string }[] {
@@ -159,7 +160,9 @@ function monthLines(sc: GScale): { x: number; label: string }[] {
   const d = new Date(sc.startMs);
   d.setDate(1);
   while (d.getTime() <= sc.endMs) {
-    out.push({ x: msToX(d.getTime(), sc), label: d.toLocaleString("en-US", { month: "short", year: "2-digit" }) });
+    // Keep the gridline but drop the label when under ~10 days remain — no room for text.
+    const label = sc.endMs - d.getTime() < 10 * DAY_MS ? "" : d.toLocaleString("en-US", { month: "short", year: "2-digit" });
+    out.push({ x: msToDay(d.getTime(), sc), label });
     d.setMonth(d.getMonth() + 1);
   }
   return out;
@@ -227,10 +230,9 @@ function attentionItems(items: ActionItem[]) {
 function glanceSlide(p: ReportPayload): string {
   const s = p.summary;
   const complete = Math.round(averageCompletion(p.items) * 100);
-  const r = RAG[s.overallHealth] || RAG.Green;
 
   const segs = [
-    { v: s.completed, c: STATUS_COLOR.Completed, l: "Completed" },
+    { v: s.completed, c: STATUS_COLOR.Completed, l: "Closed" },
     { v: s.onTrack, c: STATUS_COLOR["On-track"], l: "On-track" },
     { v: s.atRisk, c: STATUS_COLOR["At-risk"], l: "At-risk" },
     { v: s.overdue, c: STATUS_COLOR.Overdue, l: "Overdue" },
@@ -259,7 +261,7 @@ function glanceSlide(p: ReportPayload): string {
         <li class="att">
           ${statusPill(st)}
           <span class="att-name">${esc(i.requirement || i.action)}</span>
-          <span class="att-meta">${esc(i.workstream)} · due ${fmtDate(i.endDate)}</span>
+          <span class="att-meta">${esc(i.category)} · due ${fmtDate(i.endDate)}</span>
         </li>`
           )
           .join("") +
@@ -271,7 +273,7 @@ function glanceSlide(p: ReportPayload): string {
   // Forecast finish vs the fixed Day-1 target — surfaces slip without moving the deadline.
   const slipDays = s.projectedSlipDays;
   const slipCol = slipDays > 14 ? "#DC2626" : slipDays > 0 ? "#D97706" : "#059669";
-  const slipLabel = slipDays > 0 ? `${slipDays}d past target` : slipDays < 0 ? `${-slipDays}d ahead` : "on target";
+  const slipLabel = slipDays > 0 ? `${slipDays}d late` : slipDays < 0 ? `${-slipDays}d early` : "on target";
 
   return `
   <section class="slide light" data-name="At a Glance" data-theme="light">
@@ -286,16 +288,15 @@ function glanceSlide(p: ReportPayload): string {
           <div class="donut-card">
             <div class="donut-head">
               <span class="col-label">Status distribution · ${s.totalItems} items</span>
-              <span class="big-rag light-rag" style="--c:${r.color}"><span class="big-ragdot" style="background:${r.color}"></span>${r.label}</span>
             </div>
             <div class="donut-flex">
-              <div class="donut-chart">${donut}<div class="donut-center"><b>${complete}%</b><span>complete</span></div></div>
+              <div class="donut-chart">${donut}<div class="donut-center"><b>${complete}%</b><span>avg. complete</span></div></div>
               <div class="donut-legend">${legend}</div>
             </div>
             <div class="day1-strip">
               ${s.projectedFinish ? `<div><span class="d1k">Projected Day-1</span><span class="d1v" style="color:${slipCol}">${fmtDate(s.projectedFinish)}</span><span class="d1slip" style="color:${slipCol}">${slipLabel}</span></div>` : ""}
               <div><span class="d1k">Original target</span><span class="d1v">${fmtDate(s.project.day1TargetDate)}</span></div>
-              <div class="d1days"><b>${s.daysToDay1}</b><span>days to go</span></div>
+              <div class="d1days"><span class="d1k">Days to go</span><span class="d1v">${s.daysToDay1}</span></div>
             </div>
           </div>
           <div class="att-card">
@@ -355,7 +356,7 @@ function workstreamSlide(p: ReportPayload): string {
           <span class="wbar-caret">›</span>
         </div>
         <div class="bar"><div class="bar-fill" style="width:${cp}%;background:${scol}"></div></div>
-        <div class="wbar-foot"><span>${w.completed}/${w.total} complete</span><span class="wflags">${flags}</span></div>
+        <div class="wbar-foot"><span>${w.completed}/${w.total} closed</span><span class="wflags">${flags}</span></div>
       </button>`;
     })
     .join("");
@@ -380,7 +381,7 @@ function workstreamSlide(p: ReportPayload): string {
               <span class="catcard-pct">${cp}%</span>
             </div>
             <div class="bar"><div class="bar-fill" style="width:${cp}%;background:${rc}"></div></div>
-            <div class="catcard-foot"><span>${st.completed}/${st.total} complete</span><span class="wflags">${flags}</span></div>
+            <div class="catcard-foot"><span>${st.completed}/${st.total} closed</span><span class="wflags">${flags}</span></div>
           </div>`;
         })
         .join("") || `<div class="empty-card">No categories.</div>`;
@@ -419,20 +420,20 @@ function timelineSlide(p: ReportPayload): string {
 
   // Month gridlines + labels.
   const monthEls = monthLines(sc)
-    .map((m) => `<div class="gmonth" style="left:${m.x}px"><span class="gmlabel">${m.label}</span></div>`)
+    .map((m) => `<div class="gmonth" style="left:${gx(m.x)}">${m.label ? `<span class="gmlabel">${m.label}</span>` : ""}</div>`)
     .join("");
 
   // Today / Day-1 markers (clamped into view).
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const todayX = clampX(msToX(today.getTime(), sc), sc);
-  const day1X = sc.day1Ms != null ? clampX(msToX(sc.day1Ms, sc), sc) : null;
+  const todayD = clampDay(msToDay(today.getTime(), sc), sc);
+  const day1D = sc.day1Ms != null ? clampDay(msToDay(sc.day1Ms, sc), sc) : null;
   // Projected Day-1 marker (the plan's latest end) = the prominent navy line;
   // the original target is a subtle dotted grey reference.
-  const forecastX = sc.forecastMs != null ? clampX(msToX(sc.forecastMs, sc), sc) : null;
+  const forecastD = sc.forecastMs != null ? clampDay(msToDay(sc.forecastMs, sc), sc) : null;
   const marks =
-    `<div class="gmark gmark-today" style="left:${todayX}px"><span>Today</span></div>` +
-    (day1X != null ? `<div class="gmark gmark-day1" style="left:${day1X}px"><span>Target</span></div>` : "") +
-    (forecastX != null ? `<div class="gmark gmark-forecast" style="left:${forecastX}px"><span>Day-1 (proj.)</span></div>` : "");
+    `<div class="gmark gmark-today" style="left:${gx(todayD)}"><span>Today</span></div>` +
+    (day1D != null ? `<div class="gmark gmark-day1" style="left:${gx(day1D)}"><span>Target</span></div>` : "") +
+    (forecastD != null ? `<div class="gmark gmark-forecast" style="left:${gx(forecastD)}"><span>Day-1 (proj.)</span></div>` : "");
 
   // Rows grouped by WORKSTREAM + CATEGORY (e.g. "Entity Formation - Finance" is
   // distinct from "Operational readiness - Finance"). Kept in source (sortOrder)
@@ -453,46 +454,43 @@ function timelineSlide(p: ReportPayload): string {
       const sp = span!;
       const gst = groupStatus(items);
       const color = STATUS_COLOR[computeGroupStatus(items)] || "#94A3B8";
-      const cx = clampX(msToX(sp.minStart, sc), sc);
-      const plannedEndX = clampX(msToX(sp.maxEnd, sc), sc);
-      const cw = Math.max(plannedEndX - cx, 4);
+      const cx = clampDay(msToDay(sp.minStart, sc), sc);
+      const plannedEnd = clampDay(msToDay(sp.maxEnd, sc), sc);
       // Overdue group slips past its planned end → red hatch overrun out to Today.
-      const overW = gst === "Overdue" && today.getTime() > sp.maxEnd ? Math.max(todayX - plannedEndX, 0) : 0;
-      const overBar = overW > 0 ? `<div class="gbar gbar-over" style="left:${plannedEndX}px;width:${overW}px"></div>` : "";
+      const overD = gst === "Overdue" && today.getTime() > sp.maxEnd ? Math.max(todayD - plannedEnd, 0) : 0;
+      const overBar = overD > 0 ? `<div class="gbar gbar-over" style="left:${gx(plannedEnd)};width:${gx(overD)}"></div>` : "";
       const label = ws + " - " + cat;
       const itemRows = [...items]
         .sort((a, b) => (gDate(a.startDate)?.getTime() || 0) - (gDate(b.startDate)?.getTime() || 0))
         .map((it) => {
           const st = computeStatus(it);
           const c = STATUS_COLOR[st] || "#94A3B8";
-          const x0 = dateToX(it.startDate, sc);
-          const x1 = dateToX(it.endDate, sc);
+          const x0 = dateToDay(it.startDate, sc);
+          const x1 = dateToDay(it.endDate, sc);
           let bar = "";
           if (x0 != null && x1 != null) {
-            const x = clampX(x0, sc);
-            const endX = clampX(x1, sc);
+            const x = clampDay(x0, sc);
+            const endX = clampDay(x1, sc);
             if (st === "Overdue") {
               // Solid from start → original end; red hatch from original end → Today.
-              const plannedW = Math.max(endX - x, 4);
-              const ow = Math.max(todayX - endX, 0);
+              const ow = Math.max(todayD - endX, 0);
               bar =
-                `<div class="gbar gbar-solid" style="left:${x}px;width:${plannedW}px;background:${c}"></div>` +
-                (ow > 0 ? `<div class="gbar gbar-over" style="left:${endX}px;width:${ow}px"></div>` : "");
+                `<div class="gbar gbar-solid" style="left:${gx(x)};width:max(4px,${gx(endX - x)});background:${c}"></div>` +
+                (ow > 0 ? `<div class="gbar gbar-over" style="left:${gx(endX)};width:${gx(ow)}"></div>` : "");
             } else {
-              const w = Math.max(endX - x, 4);
-              const fw = w * Math.max(0, Math.min(1, it.actualCompletionPct || 0));
-              bar = `<div class="gbar" style="left:${x}px;width:${w}px;background:${c}40"><div class="gfill" style="width:${fw}px;background:${c}"></div></div>`;
+              const fillPct = Math.round(Math.max(0, Math.min(1, it.actualCompletionPct || 0)) * 100);
+              bar = `<div class="gbar" style="left:${gx(x)};width:max(4px,${gx(endX - x)});background:${c}40"><div class="gfill" style="width:${fillPct}%;background:${c}"></div></div>`;
             }
           }
-          return `<div class="grow grow-item"><div class="glabel glabel-item" title="${esc(it.requirement || it.action)}">${esc(it.requirement || it.action)}</div><div class="gtrack" style="width:${sc.chartWidth}px">${bar}</div></div>`;
+          return `<div class="grow grow-item"><div class="glabel glabel-item" title="${esc(it.requirement || it.action)}">${esc(it.requirement || it.action)}</div><div class="gtrack" style="width:${gx(sc.totalDays)}">${bar}</div></div>`;
         })
         .join("");
       return `
         <div class="gcat">
           <div class="grow grow-cat">
             <div class="glabel"><span class="gcaret">▶</span><span class="gcat-name" title="${esc(label)}">${esc(label)}</span><span class="gcat-count">${sp.total}</span></div>
-            <div class="gtrack" style="width:${sc.chartWidth}px">
-              <div class="gbar gbar-cat" style="left:${cx}px;width:${cw}px;background:${color}"><span class="gbar-txt">${sp.completed}/${sp.total}</span></div>
+            <div class="gtrack" style="width:${gx(sc.totalDays)}">
+              <div class="gbar gbar-cat" style="left:${gx(cx)};width:max(4px,${gx(plannedEnd - cx)});background:${color}"><span class="gbar-txt">${sp.completed}/${sp.total}</span></div>
               ${overBar}
             </div>
           </div>
@@ -502,7 +500,7 @@ function timelineSlide(p: ReportPayload): string {
     .join("");
 
   const legend =
-    [["Completed", "#3B82F6"], ["On-track", "#22C55E"], ["At-risk", "#F59E0B"], ["Overdue", "#EF4444"], ["Not started", "#94A3B8"]]
+    [["Closed", "#3B82F6"], ["On-track", "#22C55E"], ["At-risk", "#F59E0B"], ["Overdue", "#EF4444"], ["Not started", "#94A3B8"]]
       .map(([l, c]) => `<span class="gl-item"><span class="gl-sw" style="background:${c}"></span>${l}</span>`)
       .join("") +
     `<span class="gl-sep"></span><span class="gl-item"><span class="gl-hatch"></span>Overdue slip</span><span class="gl-item"><span class="gl-mark gl-today"></span>Today</span><span class="gl-item"><span class="gl-mark gl-forecast"></span>Projected Day-1</span><span class="gl-item"><span class="gl-mark gl-day1"></span>Target</span>`;
@@ -518,9 +516,9 @@ function timelineSlide(p: ReportPayload): string {
       <div class="body">
         <div class="gantt-legend" data-r="3">${legend}</div>
         <div class="gantt-scroll" data-r="3">
-          <div class="gantt-canvas" style="width:${G_LABEL + sc.chartWidth}px">
-            <div class="gantt-grid" style="left:${G_LABEL}px;width:${sc.chartWidth}px">${monthEls}</div>
-            <div class="gantt-marks" style="left:${G_LABEL}px;width:${sc.chartWidth}px">${marks}</div>
+          <div class="gantt-canvas" data-days="${sc.totalDays}" style="--ppd:${sc.ppd.toFixed(2)}px;width:calc(${G_LABEL}px + ${gx(sc.totalDays)})">
+            <div class="gantt-grid" style="left:${G_LABEL}px;width:${gx(sc.totalDays)}">${monthEls}</div>
+            <div class="gantt-marks" style="left:${G_LABEL}px;width:${gx(sc.totalDays)}">${marks}</div>
             <div class="gantt-header"></div>
             <div class="gantt-rows">${rows}</div>
           </div>
@@ -573,7 +571,7 @@ function categorySlide(category: string, section: ReportSection | null, items: A
   const next = section ? bulletList(section.nextSteps, "b-next") : "";
   const needs = section && (section.needsFromClient || "").trim() ? esc(section.needsFromClient.replace(/^[-•]\s*/, "")) : "";
   const fallbackRollup = !section
-    ? `<ul class="bullets b-progress"><li>${completed}/${total} complete · ${gstatus.toLowerCase()}</li></ul>`
+    ? `<ul class="bullets b-progress"><li>${completed}/${total} closed · ${gstatus.toLowerCase()}</li></ul>`
     : "";
 
   return `
@@ -582,7 +580,7 @@ function categorySlide(category: string, section: ReportSection | null, items: A
       <div class="head">
         <div class="eyebrow" data-r="1">Deep dive</div>
         <div class="title" data-r="1">${esc(category)} ${statusBadge(gstatus)}</div>
-        <p class="subtitle" data-r="2"><strong>${completed}/${total} complete</strong> · ${open} open · ${cp}% done</p>
+        <p class="subtitle" data-r="2"><strong>${completed}/${total} closed</strong> · ${open} open · ${cp}% done</p>
       </div>
       <div class="body dd-body">
         <div class="dd-tasks" data-r="3">
@@ -715,8 +713,6 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .cover-h1{font-family:var(--display);font-weight:600;font-size:clamp(44px,6vw,86px);line-height:1.04;letter-spacing:-1px;color:#fff;margin-bottom:22px;}
 .cover-sub{font-size:19px;line-height:1.6;color:rgba(255,255,255,.74);max-width:680px;margin-bottom:26px;}
 .cover-status{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:26px;}
-.big-rag{display:inline-flex;align-items:center;gap:11px;font-family:var(--display);font-weight:600;font-size:30px;color:#fff;border:1px solid var(--c);padding:8px 20px;border-radius:999px;}
-.big-ragdot{width:15px;height:15px;border-radius:50%;box-shadow:0 0 14px currentColor;}
 .cover-sowhat{font-size:17px;color:rgba(255,255,255,.8);}
 .cover-prep{font-size:12px;letter-spacing:1.5px;color:rgba(255,255,255,.5);text-transform:uppercase;}
 .cover-stats{position:absolute;left:64px;right:64px;bottom:80px;display:grid;grid-template-columns:repeat(4,1fr);gap:28px;z-index:3;border-top:1px solid rgba(255,255,255,.16);padding-top:24px;}
@@ -790,7 +786,8 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .task.open .task-notes{display:block;}
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.3px;padding:3px 9px;border-radius:999px;white-space:nowrap;}
 .pdot{width:6px;height:6px;border-radius:50%;}
-.dd-narr{display:flex;flex-direction:column;gap:18px;}
+.dd-narr{display:flex;flex-direction:column;gap:18px;min-height:0;max-height:calc(100vh - 310px);overflow-y:auto;padding-right:6px;}
+.dd-narr > *{flex-shrink:0;}
 .sowhat{background:linear-gradient(180deg,#F0FBFA,#F4F6F8);border:1px solid #CFEAE7;border-radius:14px;padding:18px 20px;}
 .sowhat-label,.narr-label{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal-700);margin-bottom:10px;}
 .narr-card{background:var(--paper-2);border:1px solid var(--rule);border-radius:14px;padding:18px 20px;}
@@ -814,21 +811,17 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .donut-card{background:#fff;border:1px solid var(--rule);border-radius:16px;padding:22px 26px;box-shadow:0 8px 24px rgba(11,37,69,.06);display:flex;flex-direction:column;}
 .donut-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px;}
 .donut-head .col-label{margin-bottom:0;}
-.donut-head .big-rag.light-rag{color:var(--navy-800);font-size:17px;padding:5px 14px;border-color:var(--c);}
 .att-card{background:#fff;border:1px solid var(--rule);border-radius:16px;padding:22px 26px;box-shadow:0 8px 24px rgba(11,37,69,.06);display:flex;flex-direction:column;min-height:0;}
 .att-card .att-list{flex:1;}
-.donut-flex{display:flex;align-items:center;gap:28px;flex:1;}
+.donut-flex{display:flex;align-items:center;gap:28px;flex:1;padding-bottom:26px;}
 .donut-chart{position:relative;width:220px;height:220px;flex-shrink:0;}
 .donut-svg{width:220px;height:220px;display:block;}
 .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
 .donut-center b{font-family:var(--display);font-weight:600;font-size:48px;color:var(--navy-800);line-height:1;}
 .donut-center span{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--ink-faint);margin-top:5px;}
-.day1-strip{margin-top:auto;padding-top:18px;border-top:1px solid var(--rule);display:flex;align-items:flex-end;justify-content:space-between;gap:14px;}
+.day1-strip{margin-top:auto;padding-top:18px;border-top:1px solid var(--rule);display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
 .day1-strip .d1k{display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal-700);}
 .day1-strip .d1v{display:block;font-family:var(--display);font-weight:600;font-size:24px;color:var(--navy-800);margin-top:3px;}
-.day1-strip .d1days{text-align:right;}
-.day1-strip .d1days b{font-family:var(--display);font-weight:600;font-size:28px;color:var(--navy-800);line-height:1;}
-.day1-strip .d1days span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-faint);margin-top:3px;}
 .day1-strip .d1slip{display:block;font-size:10.5px;font-weight:700;margin-top:2px;}
 .donut-legend{flex:1;display:flex;flex-direction:column;gap:11px;min-width:0;}
 .lg-row{display:flex;align-items:center;gap:11px;font-size:14.5px;}
@@ -842,7 +835,6 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .kpi-days{flex:1;display:flex;flex-direction:column;justify-content:center;}
 .kpi-days .kpi-n{font-family:var(--display);font-weight:600;font-size:58px;line-height:.95;}
 .kpi-sub{font-size:13.5px;color:var(--ink-soft);margin-top:8px;}
-.kpi-health .big-rag.light-rag{color:var(--navy-800);font-size:23px;padding:7px 18px;border-color:var(--c);}
 .kpi-comp-row{display:flex;align-items:baseline;gap:9px;margin-bottom:11px;}
 .kpi-comp-row b{font-family:var(--display);font-weight:600;font-size:32px;color:var(--navy-800);}
 .kpi-comp-row span{font-size:13.5px;color:var(--ink-soft);}
@@ -904,15 +896,15 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .gmark-day1 span{color:#94A3B8;top:34px;}
 .gmark-forecast span{color:#1E3A5F;}
 .gantt-header{height:34px;}
-.grow{display:flex;align-items:center;height:30px;border-bottom:1px solid #F1F5F9;}
+.grow{display:flex;align-items:center;min-height:30px;border-bottom:1px solid #F1F5F9;}
 .grow-cat{background:#F8FAFC;cursor:pointer;}
 .grow-cat:hover{background:#EEF2F6;}
-.glabel{flex:0 0 250px;width:250px;padding:0 12px;font-size:12px;color:#475569;display:flex;align-items:center;gap:7px;overflow:hidden;}
+.glabel{flex:0 0 330px;width:330px;padding:0 12px;font-size:12px;color:#475569;display:flex;align-items:center;gap:7px;overflow:hidden;}
 .grow-cat .glabel{font-weight:700;color:#334155;}
 .gcaret{color:#94A3B8;font-size:9px;transition:transform .2s;flex-shrink:0;}
-.gcat-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gcat-name{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;}
 .gcat-count{font-size:11px;font-weight:600;color:#94A3B8;}
-.glabel-item{padding-left:30px;color:#64748B;white-space:nowrap;text-overflow:ellipsis;}
+.glabel-item{padding-left:30px;color:#64748B;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25;}
 .gtrack{position:relative;height:30px;z-index:2;flex:0 0 auto;}
 .gbar{position:absolute;top:6px;height:18px;border-radius:3px;overflow:hidden;}
 .gfill{position:absolute;left:0;top:0;height:100%;border-radius:3px;}
@@ -972,7 +964,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
   .slide-inner{padding:14mm 12mm !important;display:block !important;min-height:0 !important;}
   .slide.cover .slide-inner{min-height:170mm;}
   [data-r]{opacity:1 !important;transform:none !important;}
-  .task-list,.att-list,.wbars,.catcards,.gantt-scroll{max-height:none !important;overflow:visible !important;}
+  .task-list,.att-list,.wbars,.catcards,.gantt-scroll,.dd-narr{max-height:none !important;overflow:visible !important;}
   .task-notes{display:block !important;}
   .task,.wcard,.risk,.metric,.wbar,.kpi,.donut-card,.att-card,.att,.catcard,.grow,.gbar,.gcat{break-inside:avoid;}
   .gitems{display:block !important;}
@@ -1071,9 +1063,18 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
       slide.querySelectorAll('.ws-detail').forEach(function(d){ d.classList.toggle('active', d.getAttribute('data-ws')===idx); });
     }
   });
-  window.addEventListener('resize', updateRailFill);
+  // Fit the gantt to the real slide width: recompute px-per-day (--ppd) from
+  // the container, clamped to ${G_MIN_PPD}..${G_MAX_PPD}px; below the clamp it scrolls horizontally.
+  function sizeGantt(){
+    document.querySelectorAll('.gantt-canvas').forEach(function(c){
+      var days = parseFloat(c.getAttribute('data-days')||'0'); if(!days) return;
+      var avail = c.parentElement.clientWidth - ${G_LABEL} - 2;
+      if(avail > 0) c.style.setProperty('--ppd', Math.max(${G_MIN_PPD}, Math.min(${G_MAX_PPD}, avail/days)) + 'px');
+    });
+  }
+  window.addEventListener('resize', function(){ updateRailFill(); sizeGantt(); });
   window.addEventListener('load', function(){ setTimeout(function(){ var i=document.getElementById('intro'); if(i) i.classList.add('gone'); }, 1200); });
-  render(); setTimeout(updateRailFill,120);
+  sizeGantt(); render(); setTimeout(updateRailFill,120);
 })();</script>
 </body>
 </html>`;

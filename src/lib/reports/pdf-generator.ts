@@ -111,16 +111,6 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
   doc.setFont("helvetica", "normal");
   doc.text("Executive Status Report", W / 2, 115, { align: "center" });
 
-  // Health indicator
-  const hColor = healthColor(data.summary.overallHealth);
-  doc.setFillColor(...hColor);
-  doc.circle(W / 2, 145, 12, "F");
-  doc.setTextColor(...WHITE);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  const hlabel = data.summary.overallHealth === "Green" ? "ON TRACK" : data.summary.overallHealth === "Amber" ? "AT RISK" : "CRITICAL";
-  doc.text(hlabel, W / 2, 148, { align: "center" });
-
   // Key info
   doc.setTextColor(200, 210, 220);
   doc.setFontSize(10);
@@ -204,11 +194,6 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
   doc.text(`Day-1 Target Date: ${fmtDate(data.summary.project.day1TargetDate)}`, M, y);
   y += 6;
   doc.text(`Days Remaining: ${data.summary.daysToDay1}`, M, y);
-  y += 6;
-  const hText = data.summary.overallHealth === "Green" ? "On Track" : data.summary.overallHealth === "Amber" ? "At Risk" : "Critical";
-  doc.text(`Overall Health: ${hText}`, M, y);
-  doc.setFillColor(...healthColor(data.summary.overallHealth));
-  doc.circle(M + 42, y - 1.2, 2, "F");
 
   drawFooter(2, totalPages);
 
@@ -223,7 +208,7 @@ export async function generatePDF(data: ReportData): Promise<Blob> {
     { text: "Workstream", x: M, w: 50 },
     { text: "Health", x: M + 50, w: 14, align: "center" as const },
     { text: "Total", x: M + 64, w: 14, align: "center" as const },
-    { text: "Done", x: M + 78, w: 14, align: "center" as const },
+    { text: "Closed", x: M + 78, w: 14, align: "center" as const },
     { text: "On Track", x: M + 92, w: 18, align: "center" as const },
     { text: "At-risk", x: M + 110, w: 16, align: "center" as const },
     { text: "Overdue", x: M + 126, w: 16, align: "center" as const },

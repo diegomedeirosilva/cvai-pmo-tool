@@ -58,17 +58,6 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
     fontSize: 18, fontFace: "Arial", color: "CBD5E1", align: "center",
   });
 
-  // Health circle
-  const hlabel = data.summary.overallHealth === "Green" ? "ON TRACK" : data.summary.overallHealth === "Amber" ? "AT RISK" : "CRITICAL";
-  slide1.addShape(pptx.ShapeType.ellipse, {
-    x: 5.67, y: 3.8, w: 2, h: 2,
-    fill: { color: healthHex(data.summary.overallHealth) },
-  });
-  slide1.addText(hlabel, {
-    x: 5.67, y: 4.3, w: 2, h: 1,
-    fontSize: 12, fontFace: "Arial", color: WHITE, bold: true, align: "center", valign: "middle",
-  });
-
   slide1.addText(`Day-1 Target: ${fmtDate(data.summary.project.day1TargetDate)}    |    ${data.summary.daysToDay1} days remaining`, {
     x: 0.5, y: 6.2, w: 12.33, h: 0.5,
     fontSize: 12, fontFace: "Arial", color: "94A3B8", align: "center",
@@ -163,7 +152,6 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
   slide2.addText([
     { text: `Day-1 Target: ${fmtDate(data.summary.project.day1TargetDate)}`, options: { fontSize: 11, color: "334155" } },
     { text: `   |   ${data.summary.daysToDay1} days remaining`, options: { fontSize: 11, color: NAVY, bold: true } },
-    { text: `   |   Overall Health: ${data.summary.overallHealth === "Green" ? "On Track" : data.summary.overallHealth === "Amber" ? "At Risk" : "Critical"}`, options: { fontSize: 11, color: healthHex(data.summary.overallHealth), bold: true } },
   ], {
     x: 1, y: 6.5, w: 11.33, h: 0.5,
     fontFace: "Arial", align: "center",
@@ -182,7 +170,7 @@ export async function generatePPTX(data: ReportData): Promise<Blob> {
     fontSize: 18, fontFace: "Arial", color: WHITE, bold: true,
   });
 
-  const wsHeaders = ["Workstream", "Health", "Total", "Done", "On Track", "At-risk", "Overdue", "Completion"];
+  const wsHeaders = ["Workstream", "Health", "Total", "Closed", "On Track", "At-risk", "Overdue", "Completion"];
   const wsColW = [3.5, 1.2, 1.0, 1.0, 1.2, 1.2, 1.2, 1.5];
   const wsStartX = 0.6;
 

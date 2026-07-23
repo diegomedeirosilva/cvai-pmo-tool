@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, actionItems, dependencies, categorySummaries, projects, uploads, risks } from "@/lib/db";
+import { db, actionItems, dependencies, categorySummaries, projects, uploads } from "@/lib/db";
 import { parseExcelWorkplan, buildPreview } from "@/lib/excel/parser";
-import { detectRisks } from "@/lib/risk-engine/rules";
 import { takeSnapshot } from "@/lib/snapshot";
-import { eq, ne } from "drizzle-orm";
-import { ActionItem, Dependency } from "@/types";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,7 +72,6 @@ export async function POST(req: NextRequest) {
 
     // 6. Upsert project metadata
     const existingProject = await db.select().from(projects).limit(1);
-    let projectDay1 = parsed.project.day1TargetDate;
     if (existingProject.length === 0) {
       await db.insert(projects).values(parsed.project);
     } else {
@@ -84,18 +81,7 @@ export async function POST(req: NextRequest) {
         .where(eq(projects.id, existingProject[0].id));
     }
 
-    // 7. Auto-refresh rule-based risks
-    await db.delete(risks).where(ne(risks.type, "AI-Inferred"));
-    const detectedRisks = detectRisks(
-      insertedItems as unknown as ActionItem[],
-      insertedDeps as unknown as Dependency[],
-      projectDay1
-    );
-    if (detectedRisks.length > 0) {
-      await db.insert(risks).values(detectedRisks);
-    }
-
-    // 8. Auto-snapshot for trend tracking
+    // 7. Auto-snapshot for trend tracking
     await takeSnapshot("upload");
 
     return NextResponse.json({
@@ -103,7 +89,6 @@ export async function POST(req: NextRequest) {
       preview,
       itemsInserted: insertedItems.length,
       dependenciesInserted: insertedDeps.length,
-      risksDetected: detectedRisks.length,
     });
   } catch (e) {
     console.error("Upload error:", e);

@@ -1,4 +1,4 @@
-import { ActionItem, DashboardSummary, WorkstreamHealth, Project, Risk, OwnerStats, Status } from "@/types";
+import { ActionItem, DashboardSummary, WorkstreamHealth, Project, OwnerStats, Status } from "@/types";
 import { differenceInCalendarDays } from "date-fns";
 
 /**
@@ -103,8 +103,7 @@ export function computeHealth(
 
 export function buildDashboardSummary(
   project: Project,
-  items: ActionItem[],
-  risks: Risk[]
+  items: ActionItem[]
 ): Omit<DashboardSummary, "aiSummary"> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);

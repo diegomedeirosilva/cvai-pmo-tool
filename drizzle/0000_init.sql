@@ -44,20 +44,6 @@ CREATE TABLE IF NOT EXISTS "category_summaries" (
   "duration" integer NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS "risks" (
-  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "type" text NOT NULL,
-  "severity" text NOT NULL,
-  "affected_item_ids" jsonb NOT NULL DEFAULT '[]',
-  "owners" jsonb NOT NULL DEFAULT '[]',
-  "description" text NOT NULL,
-  "suggested_mitigation" text,
-  "risk_status" text NOT NULL DEFAULT 'Open',
-  "workstream" text,
-  "created_at" timestamp NOT NULL DEFAULT now(),
-  "updated_at" timestamp NOT NULL DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS "uploads" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "uploaded_at" timestamp NOT NULL DEFAULT now(),
@@ -85,4 +71,3 @@ CREATE TABLE IF NOT EXISTS "snapshots" (
 CREATE INDEX IF NOT EXISTS idx_action_items_workstream ON action_items(workstream);
 CREATE INDEX IF NOT EXISTS idx_action_items_status ON action_items(status);
 CREATE INDEX IF NOT EXISTS idx_action_items_sort ON action_items(sort_order);
-CREATE INDEX IF NOT EXISTS idx_risks_status ON risks(risk_status);

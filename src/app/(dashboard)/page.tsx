@@ -40,8 +40,7 @@ export default async function DashboardPage() {
 
     const summary = buildDashboardSummary(
       projectRows[0] as unknown as Project,
-      items as unknown as ActionItem[],
-      []
+      items as unknown as ActionItem[]
     );
 
     return <DashboardClient summary={summary} items={items as unknown as ActionItem[]} />;

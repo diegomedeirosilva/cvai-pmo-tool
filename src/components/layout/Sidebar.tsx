@@ -13,7 +13,6 @@ const navItems = [
   { href: "/gantt", label: "Gantt Chart", icon: "▤" },
   { href: "/critical-path", label: "Critical Path", icon: "⬡" },
   { href: "/owners", label: "Owner View", icon: "◉" },
-  { href: "/risks", label: "Risk Register", icon: "⚠" },
   { href: "/reports", label: "Reports & Exports", icon: "↓" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];

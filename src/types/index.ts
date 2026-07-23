@@ -1,15 +1,4 @@
 export type Status = "Not Started" | "Completed" | "On-track" | "At-risk" | "Overdue";
-export type RiskSeverity = "Critical" | "High" | "Medium" | "Low";
-export type RiskStatus = "Open" | "Acknowledged" | "Mitigated" | "Closed";
-export type RiskType =
-  | "Overdue"
-  | "Behind Schedule"
-  | "Bottleneck Owner"
-  | "No Buffer"
-  | "Critical Path Risk"
-  | "Dependency Risk"
-  | "Stalled"
-  | "AI-Inferred";
 
 export interface ActionItem {
   id: string;
@@ -52,20 +41,6 @@ export interface Project {
   title: string;
   description: string;
   day1TargetDate: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Risk {
-  id: string;
-  type: RiskType;
-  severity: RiskSeverity;
-  affectedItemIds: string[];
-  owners: string[];
-  description: string;
-  suggestedMitigation: string | null;
-  riskStatus: RiskStatus;
-  workstream: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, projects, actionItems, risks, weeklyUpdates, weeklyUpdateSections } from "@/lib/db";
+import { db, projects, actionItems, weeklyUpdates, weeklyUpdateSections } from "@/lib/db";
 import { desc, asc, eq } from "drizzle-orm";
 import { buildDashboardSummary, buildOwnerStats, computeStatus, computeHealth } from "@/lib/dashboard";
 import { buildHtmlReport, ReportSection } from "@/lib/reports/html-report";
-import { ActionItem, Risk } from "@/types";
+import { ActionItem } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
     }
 
     const rawItems = await db.select().from(actionItems).orderBy(asc(actionItems.sortOrder));
-    const allRisks = await db.select().from(risks);
 
     const items: ActionItem[] = rawItems.map((i) => ({
       id: i.id,
@@ -49,20 +48,6 @@ export async function GET(req: NextRequest) {
       updatedAt: i.updatedAt?.toISOString() ?? "",
     }));
 
-    const mappedRisks: Risk[] = allRisks.map((r) => ({
-      id: r.id,
-      type: r.type as Risk["type"],
-      severity: r.severity as Risk["severity"],
-      affectedItemIds: (r.affectedItemIds as string[]) || [],
-      owners: (r.owners as string[]) || [],
-      description: r.description,
-      suggestedMitigation: r.suggestedMitigation,
-      riskStatus: r.riskStatus as Risk["riskStatus"],
-      workstream: r.workstream,
-      createdAt: r.createdAt?.toISOString() ?? "",
-      updatedAt: r.updatedAt?.toISOString() ?? "",
-    }));
-
     const summary = buildDashboardSummary(
       {
         id: project.id,
@@ -72,8 +57,7 @@ export async function GET(req: NextRequest) {
         createdAt: project.createdAt?.toISOString() ?? "",
         updatedAt: project.updatedAt?.toISOString() ?? "",
       },
-      items,
-      mappedRisks
+      items
     );
     const ownerStats = buildOwnerStats(items);
 
@@ -119,7 +103,7 @@ export async function GET(req: NextRequest) {
       year: "numeric",
     });
 
-    const html = buildHtmlReport({ summary, risks: mappedRisks, items, weeklySections, weekLabel, generatedAt });
+    const html = buildHtmlReport({ summary, items, weeklySections, weekLabel, generatedAt });
 
     const download = req.nextUrl.searchParams.get("download") === "1";
     const headers: Record<string, string> = { "Content-Type": "text/html; charset=utf-8" };

@@ -1,4 +1,4 @@
-import { DashboardSummary, Risk, ActionItem } from "@/types";
+import { DashboardSummary, ActionItem } from "@/types";
 import { computeStatus, rollupStatus, computeGroupStatus, averageCompletion } from "@/lib/dashboard";
 import { statusLabel } from "@/lib/utils";
 import { CVA_LOGO_DATA_URI } from "./logo";
@@ -16,7 +16,6 @@ export interface ReportSection {
 
 export interface ReportPayload {
   summary: Omit<DashboardSummary, "aiSummary">;
-  risks: Risk[];
   items: ActionItem[];
   weeklySections: ReportSection[]; // may be empty (fallback to derived categories)
   weekLabel?: string;
@@ -728,7 +727,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .metric-l{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-faint);margin-top:6px;font-weight:600;}
 
 /* glance columns */
-.glance-cols,.risk-cols,.dd-body{display:grid;gap:40px;width:100%;}
+.glance-cols,.dd-body{display:grid;gap:40px;width:100%;}
 .glance-cols{grid-template-columns:1.5fr 1fr;}
 .wgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .wcard{background:#fff;border:1px solid var(--rule);border-radius:12px;padding:15px 16px;box-shadow:0 6px 18px rgba(11,37,69,.05);}
@@ -750,18 +749,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
 .empty,.empty-card{color:var(--ink-faint);font-style:italic;font-size:14px;}
 .empty-card{background:var(--paper-2);border:1px dashed var(--rule);border-radius:12px;padding:20px;text-align:center;font-style:normal;}
 
-/* risks */
-.risk-cols{grid-template-columns:1.3fr 1fr;}
-.risk-grid{display:flex;flex-direction:column;gap:12px;}
-.risk{background:#fff;border:1px solid var(--rule);border-left:3px solid #EF4444;border-radius:10px;padding:14px 16px;box-shadow:0 6px 18px rgba(11,37,69,.05);}
-.risk-top{display:flex;align-items:center;gap:9px;margin-bottom:7px;}
 .sev{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff;padding:3px 9px;border-radius:5px;}
-.risk-type{font-weight:600;font-size:13.5px;color:var(--navy-800);}
-.risk-ws{font-size:11.5px;color:var(--ink-faint);margin-left:auto;}
-.risk-desc{font-size:14px;color:var(--ink);line-height:1.45;}
-.risk-mit{font-size:12.5px;color:var(--ink-soft);margin-top:6px;}
-.risk-mit b{color:var(--teal-700);}
-.risk-aff{font-size:12px;color:var(--ink-faint);margin-top:5px;}
 .dec-list li{position:relative;padding:10px 0 10px 0;border-bottom:1px solid var(--rule);font-size:14px;color:var(--ink);}
 .dec-cat{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--teal-700);margin-right:8px;}
 .pri-list li{display:flex;gap:12px;padding:7px 0;font-size:13.5px;color:var(--navy-800);}
@@ -945,7 +933,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
   :root{--rail-w:0px;--head-w:94%;}
   #rail{display:none;}
   .slide-inner{padding:40px 36px 84px;}
-  .glance-cols,.risk-cols,.dd-body{grid-template-columns:1fr;}
+  .glance-cols,.dd-body{grid-template-columns:1fr;}
   .metric-strip{grid-template-columns:repeat(3,1fr);}
   .wgrid{grid-template-columns:1fr;}
 }
@@ -966,7 +954,7 @@ body{font-family:var(--body);font-size:16px;line-height:1.55;color:var(--ink);ba
   [data-r]{opacity:1 !important;transform:none !important;}
   .task-list,.att-list,.wbars,.catcards,.gantt-scroll,.dd-narr{max-height:none !important;overflow:visible !important;}
   .task-notes{display:block !important;}
-  .task,.wcard,.risk,.metric,.wbar,.kpi,.donut-card,.att-card,.att,.catcard,.grow,.gbar,.gcat{break-inside:avoid;}
+  .task,.wcard,.metric,.wbar,.kpi,.donut-card,.att-card,.att,.catcard,.grow,.gbar,.gcat{break-inside:avoid;}
   .gitems{display:block !important;}
   .gcat .gcaret{transform:rotate(90deg) !important;}
   .foot{position:static !important;margin-top:22px;}

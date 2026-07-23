@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { db, actionItems, dependencies, projects, risks } from "@/lib/db";
+import { db, actionItems, projects } from "@/lib/db";
 import { asc } from "drizzle-orm";
 import { buildDashboardSummary } from "@/lib/dashboard";
-import { ActionItem, Project, Risk } from "@/types";
+import { ActionItem, Project } from "@/types";
 
 // Reads the DB with no-store; must render per-request, never prerendered at build.
 export const dynamic = "force-dynamic";
@@ -19,12 +19,9 @@ export async function GET() {
       .from(actionItems)
       .orderBy(asc(actionItems.sortOrder));
 
-    const riskRows = await db.select().from(risks);
-
     const summary = buildDashboardSummary(
       projectRows[0] as unknown as Project,
-      items as unknown as ActionItem[],
-      riskRows as unknown as Risk[]
+      items as unknown as ActionItem[]
     );
 
     return NextResponse.json(summary);

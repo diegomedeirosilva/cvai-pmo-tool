@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db, actionItems, dependencies, projects } from "@/lib/db";
 import { asc } from "drizzle-orm";
-import { exportRoundTrip, exportAnalytics } from "@/lib/excel/exporter";
+import { exportRoundTrip } from "@/lib/excel/exporter";
 import { ActionItem, Dependency, Project } from "@/types";
 
-export async function GET(req: NextRequest) {
-  const type = req.nextUrl.searchParams.get("type") || "roundtrip";
+// Reads the DB per-request; never prerendered at build.
+export const dynamic = "force-dynamic";
 
+export async function GET() {
   try {
     const projectRows = await db.select().from(projects).limit(1);
     if (projectRows.length === 0) {
@@ -21,17 +22,9 @@ export async function GET(req: NextRequest) {
     const project = projectRows[0] as unknown as Project;
     const typedItems = items as unknown as ActionItem[];
 
-    let buffer: Buffer;
-    let filename: string;
-
-    if (type === "analytics") {
-      buffer = await exportAnalytics(project, typedItems);
-      filename = `${project.title.replace(/[^a-z0-9]/gi, "_")}_Analytics.xlsx`;
-    } else {
-      const deps = await db.select().from(dependencies);
-      buffer = await exportRoundTrip(project, typedItems, deps as unknown as Dependency[]);
-      filename = `JV_Readiness_Plan_Export.xlsx`;
-    }
+    const deps = await db.select().from(dependencies);
+    const buffer = await exportRoundTrip(project, typedItems, deps as unknown as Dependency[]);
+    const filename = `JV_Readiness_Plan_Export.xlsx`;
 
     return new NextResponse(buffer as unknown as BodyInit, {
       headers: {

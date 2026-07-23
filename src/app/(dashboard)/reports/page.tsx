@@ -22,46 +22,6 @@ export default function ReportsPage() {
     setDownloading(null);
   }
 
-  async function downloadPDF() {
-    setDownloading("pdf");
-    try {
-      const res = await fetch("/api/reports/data");
-      if (!res.ok) throw new Error("Failed to fetch data");
-      const data = await res.json();
-      const { generatePDF } = await import("@/lib/reports/pdf-generator");
-      const blob = await generatePDF(data);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "PMO_Executive_Report.pdf";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert("PDF export failed. Please ensure data is loaded.");
-    }
-    setDownloading(null);
-  }
-
-  async function downloadPPTX() {
-    setDownloading("pptx");
-    try {
-      const res = await fetch("/api/reports/data");
-      if (!res.ok) throw new Error("Failed to fetch data");
-      const data = await res.json();
-      const { generatePPTX } = await import("@/lib/reports/pptx-generator");
-      const blob = await generatePPTX(data);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "PMO_Status_Report.pptx";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert("PowerPoint export failed. Please ensure data is loaded.");
-    }
-    setDownloading(null);
-  }
-
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-xl font-semibold text-ink mb-1">Reports & Exports</h1>
@@ -72,7 +32,7 @@ export default function ReportsPage() {
         <ExportCard
           icon="🖥️"
           title="Executive HTML Report"
-          description="Interactive, board-ready status deck generated live from current data — navigate on screen with the rail/arrow keys, expand tasks, and Export to save a shareable HTML file. Designed to replace the static PDF/PPTX outputs."
+          description="Interactive, board-ready status deck generated live from current data — navigate on screen with the rail/arrow keys, expand tasks, and Export to save a shareable HTML file."
           badge="HTML · interactive · printable"
           badgeColor="bg-teal-100 text-teal-700"
           onDownload={() => window.open("/api/reports/html", "_blank")}
@@ -88,39 +48,6 @@ export default function ReportsPage() {
           badgeColor="bg-green-100 text-green-700"
           onDownload={() => download("roundtrip", "JV_Readiness_Plan_Export.xlsx")}
           loading={downloading === "roundtrip"}
-        />
-
-        {/* Analytics Excel */}
-        <ExportCard
-          icon="📈"
-          title="Analytics Export"
-          description="Multi-sheet Excel with: Raw Data (all items), Summary by Workstream, Summary by Owner, Timeline (sorted by deadline). Ideal for updating your PowerPoint slides manually."
-          badge="Excel .xlsx · 4 sheets"
-          badgeColor="bg-blue-100 text-blue-700"
-          onDownload={() => download("analytics", "PMO_Analytics_Export.xlsx")}
-          loading={downloading === "analytics"}
-        />
-
-        {/* PDF report */}
-        <ExportCard
-          icon="📄"
-          title="PDF Executive Report"
-          description="5-page executive report with cover page, key metrics, workstream health, risk register, and upcoming milestones. Navy-themed consulting style."
-          badge="PDF · 5 pages"
-          badgeColor="bg-red-100 text-red-700"
-          onDownload={downloadPDF}
-          loading={downloading === "pdf"}
-        />
-
-        {/* PPTX */}
-        <ExportCard
-          icon="🖼"
-          title="PowerPoint Export"
-          description="Consulting-style slide deck with key metrics, workstream health table, risk register, and milestones. Editable native PowerPoint objects."
-          badge="PPTX · 5 slides"
-          badgeColor="bg-orange-100 text-orange-700"
-          onDownload={downloadPPTX}
-          loading={downloading === "pptx"}
         />
       </div>
     </div>

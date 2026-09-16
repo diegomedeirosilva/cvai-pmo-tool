@@ -24,7 +24,6 @@ You will end up with your own private copy of the app that you can run on your l
 
 1. Add your GitHub username as a collaborator on **github.com/diegomedeirosilva/pmo-dashboard** (Settings → Collaborators → Add people).
 2. Send you the latest readiness plan workbook (keep it in your Documents, not inside the project folder).
-3. Tell you whether to reuse the team's Anthropic API key or skip AI for now.
 
 ---
 
@@ -34,6 +33,7 @@ You will end up with your own private copy of the app that you can run on your l
 2. **Claude** — claude.ai. Claude Code is included in the **Pro, Max, Team and Enterprise** plans. It is **not** on the free plan.
 3. **Neon** — neon.tech → Sign up (free, no card). Choose "Continue with GitHub" to keep it simple.
 4. **Vercel** — vercel.com → Sign up (free "Hobby" plan). Choose "Continue with GitHub".
+5. **Anthropic Console** (optional, only for the app's AI feature) — console.anthropic.com → Sign up → add a small amount of credit → **API keys** → **Create key**. Copy the key somewhere safe; it is shown only once. This is separate from your Claude subscription: the subscription pays for Claude Code, the API key pays per use for the Weekly Update generator inside the app. You can skip this and add it later.
 
 ---
 
@@ -94,7 +94,7 @@ Open `.env.local` in Notepad (or in VS Code) and paste in the real values:
 
 - `DATABASE_URL` = the Neon connection string
 - `SHARED_PASSWORD` = the password the team will log in with
-- `ANTHROPIC_API_KEY` = the key Diego gave you. If you are skipping AI for now, delete the two AI lines. Everything except the Weekly Update generator works without them.
+- `ANTHROPIC_API_KEY` = your own key from console.anthropic.com (Part 1). If you are skipping AI for now, delete the two AI lines. Everything except the Weekly Update generator works without them.
 
 Do not paste passwords or keys into the Claude chat. Put them in the file directly. This file stays on your laptop and is never sent to GitHub.
 
